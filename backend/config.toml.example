@@ -1,0 +1,29 @@
+# The port for the backend server
+#port = 12574
+# The api key that is used for admin-level api requests
+#api_key = "fake-api-key"
+
+[logging]
+# If the log file is left blank, this will cause logs to be output directly to the console
+#file = ""
+#level = "info"
+
+[database]
+# The database type (either 'sqlite3' or 'postgresql')
+#type = "sqlite3"
+
+[database.sqlite3]
+# The path to the SQLite3 database
+#path = "/path/to/database"
+
+[database.postgres]
+# The hostname for the postgres server
+#host = "localhost"
+# The port for the postgres server
+#port = 5432
+# The database name
+#db_name = "no_idea"
+# The database user
+#user = "no_idea_backend"
+# The database password
+#password = "fake-db-password"
