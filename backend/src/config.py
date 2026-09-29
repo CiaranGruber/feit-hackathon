@@ -255,7 +255,7 @@ def validate_correct_database_defined(config: dict[str, Any], schema_path: str):
 
 
 SCHEMA = ConfigSchema({
-    "port": ConfigOption(lambda x: isinstance(x, int) and 1000 < x < 65535, 12574, True),
+    "port": ConfigOption(lambda x: isinstance(x, int) and 1000 < x < 65535, 6486, True),
     "api_key": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, required=True),
     "logging": ConfigSchema({
         "file": ConfigOption(lambda x: _is_valid_path(x, True), None, True, post_validator_func=lambda x: x if x is None else Path(x)),

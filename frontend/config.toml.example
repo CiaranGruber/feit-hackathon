@@ -1,0 +1,13 @@
+# Port for the frontend server
+#port = 6485
+
+# The logging level for any errors (info | warn | error | silent)
+#logLevel = "info"
+
+# -------------------------------------
+# Public Configuration Options
+# -------------------------------------
+# Note: All configuration options under here are expected to be available to clients. Secrets should not be available here
+
+# The URL to the backend server
+#backendUrl = "http://localhost:6486"

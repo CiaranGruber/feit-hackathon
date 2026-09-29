@@ -1,5 +1,5 @@
 # The port for the backend server
-#port = 12574
+#port = 6486
 # The api key that is used for admin-level api requests
 #api_key = "fake-api-key"
 
