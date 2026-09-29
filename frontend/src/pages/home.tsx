@@ -25,7 +25,7 @@ export function Home() {
         <div>
           <h1>Get started</h1>
           <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+            Edit <code>src/pages/home.tsx</code> and save to test <code>HMR</code>
           </p>
         </div>
         <button
@@ -36,6 +36,8 @@ export function Home() {
           Count is {count}
         </button>
         <button
+          type="button"
+          className="cursor-pointer rounded-lg border border-(--accent-border) bg-(--accent-bg) px-4 py-2 text-(--accent) transition-colors hover:bg-(--accent-border) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent)"
           onClick={setHello}
         >
           Get API response

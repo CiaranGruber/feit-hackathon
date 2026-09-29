@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type LogLevel } from 'vite'
 import {readFileSync} from "node:fs";
 import {parse} from "smol-toml";
@@ -135,7 +136,7 @@ const config = compileConfig()
 export default defineConfig({
   server: { port: config.port },
   logLevel: config.logLevel,
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   define: {
     __APP_CONFIG__: JSON.stringify(config.public)
   },

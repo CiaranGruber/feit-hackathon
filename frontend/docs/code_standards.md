@@ -83,6 +83,10 @@ export function About() {
 ```
 
 Optional page-specific styles can live beside the component (e.g. `about.css`).
+Use Tailwind utility classes directly in `className` for styling. If custom CSS
+is needed, place page styles inside `@layer components` and global defaults
+inside `@layer base` so Tailwind utilities can override them. Keep utility class
+names complete in source code rather than constructing them dynamically.
 
 ### 2. Register the route
 
