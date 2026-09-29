@@ -11,7 +11,7 @@ from pathlib import Path
 import uvicorn
 
 from src import DEFAULT_CONFIG_FILE
-from src.api import api
+from src.endpoints.api import api
 from src.config import parse_config, get_config
 from src.app import init_app
 

@@ -75,27 +75,28 @@ Do not read `config.toml` directly elsewhere. Always go through `get_config()` a
 
 ## Adding endpoints
 
-HTTP routes live in `src/api.py` on the shared `api = FastAPI()` instance.
+HTTP routes live in dedicated modules under `src/endpoints/`. The shared FastAPI application is created once in `src/endpoints/api.py` (`api = FastAPI()`). Shared dependencies such as `verify_api_key` live in `src/endpoints/util.py`.
+
+Each feature gets its own file with an `APIRouter`, for example `src/endpoints/tasks.py`. Do not add feature routes to `api.py` beyond mounting their routers.
 
 ### Pattern
 
-1. Declare the route with a FastAPI decorator (`@api.get`, `@api.post`, etc.).
-2. Keep request/response shaping and HTTP errors in the endpoint.
-3. Delegate business logic (database access, external APIs) to a module under `src/modules/`.
-4. Protect privileged routes with `dependencies=[Depends(verify_api_key)]`. Clients must send the `x-api-key` header matching `config.api_key`.
+1. Create or extend a module under `src/endpoints/` named for that area of the API.
+2. Create a module-level router: `router = APIRouter(prefix="/task", tags=["tasks"])`.
+3. Declare routes on that router (`@router.get`, `@router.post`, etc.).
+4. Describe JSON bodies with a Pydantic model in that same file. Validate path, query, and body inputs with `Annotated`, `Path`, `Field`, and similar constraints.
+5. Keep request/response shaping and HTTP errors in the endpoint.
+6. Delegate business logic (database access, external APIs) to a module under `src/modules/`.
+7. Mount the router from `src/endpoints/api.py` with `api.include_router(...)`.
+8. Protect privileged routes with `dependencies=[Depends(verify_api_key)]`, importing `verify_api_key` from `src.endpoints.util`. Clients must send the `x-api-key` header matching `config.api_key`.
 
-**Minimal protected endpoint:**
-
-```python
-@api.get("/hello/{name}", dependencies=[Depends(verify_api_key)])
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
-```
-
-**Endpoint that uses a module:**
+**Dedicated endpoint module:**
 
 ```python
-@api.get("/user/{user_id}", dependencies=[Depends(verify_api_key)])
+router = APIRouter(prefix="/user", tags=["users"])
+
+
+@router.get("/{user_id}")
 async def get_user(user_id: Annotated[str, Path(min_length=36, max_length=36)]):
     try:
         user = users.get_user(user_id)
@@ -104,25 +105,42 @@ async def get_user(user_id: Annotated[str, Path(min_length=36, max_length=36)]):
         raise HTTPException(status_code=404, detail=str(e))
 ```
 
+**Mount the router** in `src/endpoints/api.py`:
+
+```python
+api.include_router(tasks_router)
+api.include_router(users_router)
+```
+
 ### Guidelines
 
-- Validate path/query/body inputs with FastAPI/`Annotated` constraints where useful.
+- One concern per endpoint file (tasks, users, and so on).
 - Map domain errors from modules (e.g. `KeyError`) to appropriate `HTTPException` status codes.
-- Do not put SQLAlchemy queries or provider SDK calls directly in `api.py`.
+- Do not put SQLAlchemy queries or provider SDK calls directly in endpoint modules.
+- Feature modules import `verify_api_key` from `util.py` and expose an `APIRouter`. They must not import the FastAPI `api` instance. Mount routers from `api.py` so imports stay acyclic.
 - Optionally add a request to `test_main.http` for manual checks.
 
 ---
 
 ## Adding SQL database tables
 
-ORM models live in `src/modules/db_schema.py` and use modern SQLAlchemy 2.0 Declarative style.
+Every schema change is made in three places, in the same change:
 
-### Pattern
+1. `src/modules/db_schema.py` — SQLAlchemy ORM models. This is the source of truth used to create tables.
+2. `docs/db_schema.md` — Mermaid entity-relationship diagram of the same schema.
+3. `scripts/seed.sql` — Sample insert data used by `scripts/setup_db.py`.
+
+The diagram and seed data must match the models. Do not add or alter a table in only one of these files.
+
+### 1. Define the model in `db_schema.py`
+
+ORM models use modern SQLAlchemy 2.0 Declarative style.
 
 1. Subclass `Base` (the shared `DeclarativeBase`).
 2. Set `__tablename__`.
 3. Declare columns with `Mapped[...]` and `mapped_column(...)`.
-4. Ensure the model module is imported before `Base.metadata.create_all` runs (via `NoIdeaApp.validate_database()`), so the table is registered on metadata.
+4. Add `ForeignKey` and `relationship(...)` only when there is a real link between models.
+5. Ensure the model module is imported before `Base.metadata.create_all` runs (via `NoIdeaApp.validate_database()`), so the table is registered on metadata.
 
 **Example:**
 
@@ -136,13 +154,63 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String, nullable=False)
 ```
 
-### Guidelines
+**Guidelines:**
 
 - Prefer `Mapped[T]` / `mapped_column` over legacy `Column`-only style on classes.
 - Use `Mapped[T | None]` for nullable fields.
-- Add `relationship(...)` only when there is a real foreign-key link between models.
 - Table creation is handled through `Base.metadata.create_all(self.db_engine)` in `app.py`; do not create tables ad hoc in modules.
 - Keep schema definitions in `db_schema.py`; keep query helpers in domain modules (e.g. `users.py`).
+
+### 2. Update the ER diagram in `docs/db_schema.md`
+
+`docs/db_schema.md` holds a single Mermaid `erDiagram` of the current database. Add or edit entities there whenever `db_schema.py` changes.
+
+**Conventions:**
+
+- One entity per table. The entity name matches `__tablename__` (for example `USERS`).
+- One attribute per column, in the same order as the model.
+- Use a Mermaid type that matches the column: `string`, `int`, `float`, `boolean`, `date`, or `datetime`.
+- Mark keys with `PK`, `FK`, or `UK`.
+- Put constraints the type does not show in a trailing comment: length, `not null`, and defaults.
+- Draw one relationship line per foreign key. Use Mermaid cardinality (`||--||`, `||--o{`, `}|--|{`, and so on). Label the line with the relationship name.
+
+**Example** (matches the `User` model above):
+
+```mermaid
+erDiagram
+    USERS {
+        string id PK "36 characters"
+        string first_name "not null"
+    }
+```
+
+When a later table references `USERS.id`, add both the new entity and the relationship in `docs/db_schema.md`:
+
+```mermaid
+erDiagram
+    USERS ||--o{ ORDERS : places
+    USERS {
+        string id PK "36 characters"
+        string first_name "not null"
+    }
+    ORDERS {
+        string id PK
+        string user_id FK "not null"
+    }
+```
+
+### 3. Update seed data in `scripts/seed.sql`
+
+`scripts/seed.sql` holds the sample rows loaded by `scripts/setup_db.py` after tables are created. Whenever `db_schema.py` changes, update the seed script in the same change so local and demo databases stay valid.
+
+**Conventions:**
+
+- Quote table and column names to match `__tablename__` and the ORM column names (for example `"USERS"`, `"id"`).
+- Keep `DELETE` statements in reverse foreign-key order, then `INSERT` statements in dependency order (parents before children).
+- Include every non-nullable column on each insert; nullable columns may be omitted or set to `NULL`.
+- Respect length limits and check constraints from the models (for example ratings 1–5, category names ≤16 characters).
+- Prefer fixed 36-character ids so seed data is stable across re-runs.
+- Do not put schema DDL (`CREATE TABLE`, and so on) in `seed.sql`; table creation stays with `Base.metadata.create_all` via `setup_db.py` / the app.
 
 ---
 
@@ -154,7 +222,9 @@ All non-HTTP integration work belongs under `src/modules/`. Endpoints call modul
 
 | Layer | Responsibility |
 |---|---|
-| `src/api.py` | Routes, auth dependency, HTTP status codes, response JSON |
+| `src/endpoints/api.py` | FastAPI app, CORS, and `include_router` for feature routers |
+| `src/endpoints/util.py` | Shared endpoint dependencies (e.g. `verify_api_key`) |
+| `src/endpoints/*.py` | One `APIRouter` per domain, HTTP status codes, response JSON |
 | `src/modules/*.py` | Domain operations (users, future providers, etc.) |
 | `src/modules/db_schema.py` | ORM table definitions only |
 | `src/app.py` | Shared app singleton, including `db_engine` |

@@ -6,6 +6,7 @@ All configuration items loaded into the backend get automatically validated and 
 
 from __future__ import annotations
 
+import copy
 import logging
 import tomllib
 from dataclasses import dataclass
@@ -274,7 +275,7 @@ SCHEMA = ConfigSchema({
             "password": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, required=True),
         }, lambda x: PostgresConfig(**x), evaluate_if_empty=False)
     }, lambda x: DatabaseConfig(**x), validator_func=validate_correct_database_defined)
-}, lambda x: Config(**x), True)
+}, lambda x: Config(**x))
 
 # --------------------------------------------------
 # Parsing and compilation
@@ -282,15 +283,27 @@ SCHEMA = ConfigSchema({
 
 _CONFIG: Config = EmptyConfig()
 
-def parse_config(config_file: Path):
+
+def parse_config_json(config: dict[str, Any]):
+    """Validate and apply configuration from a dictionary.
+
+    :param config: Raw configuration mapping (same shape as ``config.toml``).
+    """
     global _CONFIG
-    # Load config file
+    _CONFIG = SCHEMA.validate_schema(copy.deepcopy(config))
+
+
+def parse_config(config_file: Path):
+    """Load, validate, and apply configuration from a TOML file.
+
+    :param config_file: Path to ``config.toml``. Missing files yield an empty config.
+    """
     try:
         with config_file.open("rb") as handle:
             config = tomllib.load(handle)
     except FileNotFoundError:
         config = {}
-    _CONFIG = SCHEMA.validate_schema(config)
+    parse_config_json(config)
 
 
 def get_config() -> Config:

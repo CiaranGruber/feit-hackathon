@@ -2,3 +2,5 @@ fastapi
 sqlalchemy
 uvicorn
 starlette
+pydantic
+pytest
