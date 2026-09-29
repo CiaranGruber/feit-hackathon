@@ -107,7 +107,7 @@ function toLogLevel(value: string): LogLevel {
  * Compiles the configuration from the config.toml, validating each parameter according to their specific rules
  */
 function compileConfig(): AppConfig {
-  let raw = loadConfig(process.env.FITTRACK_FE_CONFIG ?? "./config.toml")
+  let raw = loadConfig(process.env.NO_IDEA_FE_CONFIG ?? "./config.toml")
 
   // Set basic defaults
   const port = validate(asType(raw.port, 0), x => 1000 < x && x < 65535, DEFAULT_PORT)
