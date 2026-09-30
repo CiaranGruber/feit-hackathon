@@ -52,7 +52,7 @@ boundary is unambiguous — those pieces are not built yet.
 | Reflection Analyser | **AI layer** | `ai/reflection_analyser.py` |
 | Companion Conversation | **AI layer** | `ai/companion.py` |
 | Discovery Engine scoring / tiering | built | `src/modules/discovery.py` |
-| Activity catalogue data | built | `src/data/activities.json` |
+| Activity catalogue data | built | `scripts/seed.sql` + `src/modules/catalogue.py` |
 | Profile update maths | *not built* | — |
 | Tables, endpoints, UI | *not built* | — |
 
@@ -105,6 +105,9 @@ high on both. This matters — see §4.1.
 
 `types.py` also exports three helpers over this vocabulary: `empty_dimensions()`,
 `normalise_dimensions(values)` and `nudge(value, amount)`.
+
+These seven names are also the `TAGS` table in the database, and they double as an activity's
+"categories" — there is one vocabulary, not two.
 
 **This tuple is the contract.** The catalogue must tag activities with these exact keys, the
 Discovery Engine scores against them, and the AI layer reads and writes them. Renaming one means
@@ -166,8 +169,10 @@ class Activity:
     related_interests: list[str]        # for novelty adjacency, e.g. ["photography", "drawing"]
 ```
 
-**Design decision:** the catalogue should be fully generic and location-agnostic — no
-city-specific assumptions, so it works anywhere a judge runs it.
+**Design decision:** the catalogue is fully generic and location-agnostic — no city-specific
+assumptions, so it works anywhere a judge runs it. It lives in the database; `catalogue.py` reads
+`TASKS` plus their tag values and returns these objects. See
+[discovery_engine.md](discovery_engine.md).
 
 ---
 
@@ -448,9 +453,10 @@ outstanding, in the order the product document's loop needs them:
 
 | # | Piece | Why it blocks the loop |
 |---|---|---|
-| 1 | Database tables (users, profiles, quests, reflections, signals) | Nothing persists between requests |
+| 1 | Profile persistence (profiles, signals tables) | Profiles are rebuilt per request, never stored |
 | 2 | Profile update logic | `demo_loop.py` applies signals inline; needs a real home |
-| 3 | API endpoints | The frontend has nothing to call |
+| 3 | Quest tables and endpoints | No way to start or complete a quest |
 | 4 | Frontend pages | No demo UI |
 
 The catalogue and Discovery Engine are built — see [discovery_engine.md](discovery_engine.md).
+Tasks, tags, users and completions already have tables, courtesy of the team's `dev` work.

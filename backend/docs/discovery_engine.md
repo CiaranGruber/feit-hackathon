@@ -28,35 +28,36 @@ Three things this buys, all of which matter for the demo:
 
 ## 2. The catalogue
 
-46 activities in `src/data/activities.json`, generic and location-agnostic so they work
-wherever the demo is run.
+30 tasks in the SQLite database, seeded from `scripts/seed.sql`. Generic and
+location-agnostic so they work wherever the demo is run.
 
 ```python
-from src.modules.catalogue import load_activities, get_activity, all_categories
+from src.modules.catalogue import load_activities, get_activity, find_activity
 ```
 
-Each entry carries the seven `DIMENSIONS` attributes, categories, a duration range, cost level,
-difficulty and `related_interests`. Attributes are normalised on load, so a typo in the data
-cannot produce a missing key that breaks scoring at request time.
+`catalogue.py` reads the database and returns `Activity` objects. **Terminology:** a *task* in
+the database is an *activity* to the engine, and a *tag* is one of the seven dimensions.
 
-Coverage (activities scoring ≥ 0.6 on each dimension):
+It deliberately does not reuse `tasks.py:get_available_tasks()`. That function serves the API —
+it aggregates user feedback and omits the task id, while the engine needs the id for
+deduplication and quest records plus the duration, cost and difficulty columns. Two readers over
+the same tables lets the API shape and the engine shape change independently.
+
+Coverage (tasks scoring ≥ 0.6 on each dimension):
 
 | Dimension | Count |
 |---|---|
-| novelty_tolerance | 22 |
-| hands_on | 18 |
-| creative | 15 |
-| outdoor | 13 |
-| analytical | 9 |
-| social | 9 |
-| physical | 7 |
+| novelty_tolerance | 15 |
+| creative | 11 |
+| hands_on | 9 |
+| social | 8 |
+| outdoor | 8 |
+| analytical | 6 |
+| physical | 4 |
 
-24 of the 46 are free and 32 are difficulty 1–2, so a cautious or broke user still gets a full
-set of three. `physical` is the thinnest at 7, which is worth knowing if you demo with a
-sports-heavy profile.
-
-Activities live in JSON rather than the database because the schema does not exist yet. When it
-does, this module becomes the seeder and callers do not change.
+19 of the 30 are free and 21 are difficulty 1–2, so a cautious or low-budget user still gets a
+full set of three. **`physical` is thin at 4**, which noticeably weakens Wildcards for
+sports-heavy profiles — the first place to add tasks if recommendations feel repetitive.
 
 ---
 
@@ -80,17 +81,27 @@ How new this is *to this user*, from three sources:
 
 | Source | Weight |
 |---|---|
-| No overlap with their known interests | 0.40 |
-| Category not yet explored | 0.35 |
+| Subject matter unfamiliar to them | 0.40 |
+| Dimension not yet explored | 0.35 |
 | Distance from their dimensions | 0.25 |
+
+Interest familiarity **saturates** rather than being a ratio of matches to tags. A proportional
+measure punishes well-described activities: urban sketching tagged `drawing, art, observation`
+would read as two-thirds novel to someone who draws, purely because it also lists two tags they
+happen not to have. One match against a stated hobby means the activity is largely familiar
+(0.75), and further matches add less.
 
 Interest and category novelty outweigh dimension distance deliberately. If novelty were mostly
 dimension distance it would collapse into "bad fit", and Wildcard would just surface whatever
 suits the user least.
 
-A category never completed but not flagged underexplored scores **0.55**, not higher. On day one
-a user has completed nothing, so treating every category as strongly novel puts a floor under the
+A dimension never completed but not flagged underexplored scores **0.55**, not higher. On day one
+a user has completed nothing, so treating everything as strongly novel puts a floor under the
 score that the Familiar tier can never reach — the tier then collapses into pure preference fit.
+
+There is one vocabulary, not two. An activity's "categories" are the dimensions it is genuinely
+about (value ≥ 0.6, from `TASK_TAGS` ordered weakest-first), and a profile's `underexplored` uses
+the same seven names. The engine compares them by exact string match.
 
 ### Connection
 
@@ -111,7 +122,7 @@ function.
 
 Completed activities are excluded. Recently shown ones lose 0.25. Disliked ones lose 0.45 but are
 **never excluded** — FR14 is explicit that a rejection is a signal, not a permanent ban. Each
-category already used by an earlier pick in the same set costs 0.12 (FR13).
+dimension already used by an earlier pick in the same set costs 0.12 (FR13).
 
 ---
 
@@ -133,7 +144,13 @@ Tiers fill in order Familiar → Explore → Wildcard, so later picks are steere
 categories already used. If no candidate clears a tier's connection floor the floor is relaxed
 rather than returning an empty tier: a weakly connected Wildcard beats no Wildcard.
 
-Observed novelty for a fresh profile runs roughly 0.35 → 0.60 → 0.78 across the three tiers.
+Observed novelty for a fresh profile runs roughly 0.33 → 0.60 → 0.80 across the three tiers.
+
+The ladder is an emergent property, not an enforced constraint, so it can invert. A social
+foodie's Explore pick came out at 0.28 against a Familiar of 0.35, because "Cook an unfamiliar
+cuisine" shares the tag `cooking` with their stated interests and so reads as familiar even
+though the novelty is in the word *unfamiliar*. The picks were still sensible; forcing
+monotonicity would cost better candidates.
 
 ---
 
@@ -167,14 +184,33 @@ If the FR12 before/after difference looks too subtle when demoing, the first lev
 
 ---
 
-## 7. What is not built
+## 7. Schema additions
+
+Five columns were added to `TASKS` for the engine:
+
+| Column | Why |
+|---|---|
+| `duration_min`, `duration_max` | Hard constraint — "I have two hours" must filter (FR6) |
+| `cost_level` | Hard constraint — "I don't want to spend much" must filter (FR6) |
+| `difficulty` | Quest display and reward sizing (FR7) |
+| `related_interests` | Comma-separated tags, compared against the user's stated interests for novelty |
+
+`TAG_NAME_LENGTH` also went from 16 to 32, because `novelty_tolerance` is 17 characters.
+
+`TASK_TAG_RELATIONSHIPS` needed no change — `(task_id, tag_id, value 0–1)` is already exactly the
+shape the engine wants. Its **values** were re-authored, though: they had been derived from tag
+position (`value = (position + 1) / tag_count`), so *Sunset walk* scored `outdoor 0.33`. Position
+carries no information about strength, and the engine compares these directly against a user's
+profile. They are now authored per task, where 0.5 means the task is indifferent, 1.0 strongly
+this, and 0.0 strongly the opposite.
+
+## 8. What is not built
 
 | # | Piece | Why it blocks the loop |
 |---|---|---|
-| 1 | Database tables | Nothing persists between requests |
+| 1 | Profile persistence | Profiles are built per request and never stored |
 | 2 | Profile update module | `demo_loop.py` applies signals inline; needs a real home |
-| 3 | API endpoints | The frontend has nothing to call |
+| 3 | Quest tables and endpoints | No way to start or complete a quest |
 | 4 | Frontend pages | No demo UI |
 
-Quest creation and completion (FR7, FR8) are thin once the tables exist: a quest is an activity
-plus a status and a reward.
+Quest creation and completion (FR7, FR8) are thin: a quest is a task plus a status and a reward.
