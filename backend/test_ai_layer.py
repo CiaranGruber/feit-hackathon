@@ -126,7 +126,7 @@ async def main():
         {"activity_id": "a", "explanation": "only a"}]}}); patch_all(partial)
     lines = await eg.generate_explanations(p, [(act_a, T.Tier.FAMILIAR), (act_b, T.Tier.EXPLORE)])
     assert len(lines) == 2 and lines[0] == "only a" and lines[1], "missing id not backfilled"
-    print(f"batch gaps  OK  omitted id fell back to a template, other line preserved")
+    print("batch gaps  OK  omitted id fell back to a template, other line preserved")
 
     print(f"\nmodel calls: {fake.calls}")
     fast = [c for c in fake.calls if c[1]]
