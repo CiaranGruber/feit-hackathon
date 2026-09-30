@@ -474,10 +474,11 @@ outstanding, in the order the product document's loop needs them:
 
 | # | Piece | Why it blocks the loop |
 |---|---|---|
-| 1 | Profile persistence (profiles, signals tables) | Profiles are rebuilt per request, never stored |
-| 2 | Profile update logic | `demo_loop.py` applies signals inline; needs a real home |
-| 3 | Quest tables and endpoints | No way to start or complete a quest |
+| 1 | API endpoints for discovery | The frontend has nothing to call |
+| 2 | Quest records | Completions persist, but not the "started" state (FR7) |
+| 3 | Recommendation history | `recently_shown_ids` is passed in, not persisted (FR13) |
 | 4 | Frontend pages | No demo UI |
 
-The catalogue and Discovery Engine are built — see [discovery_engine.md](discovery_engine.md).
-Tasks, tags, users and completions already have tables, courtesy of the team's `dev` work.
+Everything else runs end to end on SQLite — see [discovery_engine.md](discovery_engine.md).
+`python demo_loop.py` onboards, recommends, takes a companion turn, completes a quest, analyses
+the reflection, updates the stored profile and rediscovers, persisting at every step.

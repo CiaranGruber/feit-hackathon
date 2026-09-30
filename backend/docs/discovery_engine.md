@@ -204,13 +204,42 @@ carries no information about strength, and the engine compares these directly ag
 profile. They are now authored per task, where 0.5 means the task is indifferent, 1.0 strongly
 this, and 0.0 strongly the opposite.
 
-## 8. What is not built
+## 8. Profiles and persistence
+
+`src/modules/profiles.py` stores the user side of the loop and owns the profile-update maths.
+
+| Function | Does |
+|---|---|
+| `load_profile` / `save_profile` | Read and write `USER_PROFILES`; saving bumps a monotonic `version` |
+| `record_signals` / `get_signals` | Append to and read `PROFILE_SIGNALS` |
+| `apply_signals` | Folds signals into a profile (FR11) |
+| `get_history` | Builds `DiscoveryHistory` from `USER_TASK_COMPLETIONS` (FR13) |
+
+Two rules shape `apply_signals`:
+
+**Movement uses `nudge`, not addition.** A step is a fraction of the remaining headroom, so
+repeated evidence cannot saturate a dimension, evidence about something already strongly
+believed moves it little, and a dimension at the bound can still register a later negative
+signal.
+
+**A positive signal also lifts `novelty_tolerance`** by `NOVELTY_SPILLOVER` (0.4) of its step.
+That is FR11's anti-bubble rule: discovering you like making things should open woodworking,
+cooking and gardening — not narrow everything to pottery.
+
+A completion rated 1 or 2 counts as disliked in `get_history`, so the engine penalises similar
+activities without excluding the category outright (FR14).
+
+Three tables carry this. `USER_PROFILES` and `PROFILE_SIGNALS` are new; `USER_TASK_COMPLETIONS`
+gained nullable `would_repeat` and `perceived_difficulty` for FR9, and `tasks.complete_task()`
+takes them as optional arguments.
+
+## 9. What is not built
 
 | # | Piece | Why it blocks the loop |
 |---|---|---|
-| 1 | Profile persistence | Profiles are built per request and never stored |
-| 2 | Profile update module | `demo_loop.py` applies signals inline; needs a real home |
-| 3 | Quest tables and endpoints | No way to start or complete a quest |
+| 1 | API endpoints for discovery | The frontend has nothing to call |
+| 2 | Quest records | A completion is stored, but not the "started" state (FR7) |
+| 3 | Recommendation history | `recently_shown_ids` is passed in, not persisted (FR13) |
 | 4 | Frontend pages | No demo UI |
 
-Quest creation and completion (FR7, FR8) are thin: a quest is a task plus a status and a reward.
+Quest creation is thin now that completions persist: it needs a status column and a reward.
