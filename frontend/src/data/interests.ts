@@ -7,6 +7,7 @@ import learningIcon from '../assets/learning_2.png'
 import shoppingIcon from '../assets/shopping_2.png'
 import sportsIcon from '../assets/sports_2.png'
 import otherIcon from '../assets/other_2.png'
+import { interestCategories } from './interest-categories.ts'
 
 type InterestOption = {
   id: string
@@ -14,14 +15,10 @@ type InterestOption = {
   icon: string
 }
 
-export const interestOptions: InterestOption[] = [
-  { id: 'food-drink', label: 'Food & Drink', icon: foodAndDrinkIcon },
-  { id: 'outdoors', label: 'Outdoors', icon: outdoorsIcon },
-  { id: 'arts-culture', label: 'Arts & Culture', icon: artsAndCultureIcon },
-  { id: 'wellness', label: 'Wellness', icon: wellnessIcon },
-  { id: 'social', label: 'Social', icon: socialIcon },
-  { id: 'learning', label: 'Learning', icon: learningIcon },
-  { id: 'shopping', label: 'Shopping', icon: shoppingIcon },
-  { id: 'sports', label: 'Sports', icon: sportsIcon },
-  { id: 'other', label: 'Other', icon: otherIcon },
-]
+const icons = {
+  'food-drink': foodAndDrinkIcon, outdoors: outdoorsIcon, 'arts-culture': artsAndCultureIcon,
+  wellness: wellnessIcon, social: socialIcon, learning: learningIcon,
+  shopping: shoppingIcon, sports: sportsIcon, other: otherIcon,
+}
+
+export const interestOptions: InterestOption[] = interestCategories.map(category => ({ ...category, icon: icons[category.id] }))

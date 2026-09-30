@@ -1,13 +1,8 @@
-import { interestOptions } from './interests.ts'
+import { validInterestIds } from './interest-categories.ts'
 
 const storageKey = 'onboarding.interests.v1'
 let memoryDraft: string[] = []
 let useMemoryDraft = false
-
-function validInterestIds(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return interestOptions.filter(option => value.includes(option.id)).map(option => option.id)
-}
 
 /**
  * Read the local, pre-registration draft. This is not a backend service.

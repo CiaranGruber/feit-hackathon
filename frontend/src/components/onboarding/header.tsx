@@ -5,7 +5,7 @@ import { focusClasses } from './styles.ts'
 const steps = ['Introduction', 'Your interests', 'Create your account']
 
 type OnboardingHeaderProps = {
-  step: 1 | 2 | 3
+  step?: 1 | 2 | 3
   backTo: string
   backLabel: string
 }
@@ -23,7 +23,7 @@ export function OnboardingHeader({ step, backTo, backLabel }: OnboardingHeaderPr
         </svg>
       </Link>
 
-      <div
+      {step !== undefined && <div
         role="progressbar"
         aria-label="Account setup"
         aria-valuemin={1}
@@ -38,7 +38,7 @@ export function OnboardingHeader({ step, backTo, backLabel }: OnboardingHeaderPr
             <span className={`size-[11px] rounded-full ${index < step ? 'bg-primary-dark' : 'bg-line'}`} />
           </Fragment>
         ))}
-      </div>
+      </div>}
     </header>
   )
 }

@@ -1,3 +1,14 @@
+import { checkStubFailure, waitForStub } from './stub-utils.ts'
+import { clearDisplayProfile } from '../data/display-profile.ts'
+
+/** TODO(backend): End the real session. This only clears the active preview identity. */
+export async function signOut(signal?: AbortSignal): Promise<{ isStub: true }> {
+  await waitForStub(signal)
+  checkStubFailure('sign-out')
+  clearDisplayProfile()
+  return { isStub: true }
+}
+
 export type SocialProvider = 'google' | 'apple'
 
 export type RegisterAccountInput = {
@@ -7,9 +18,15 @@ export type RegisterAccountInput = {
   interestIds: readonly string[]
 }
 
+export type SignInInput = {
+  email: string
+  password: string
+}
+
 export type SocialSignInInput = {
   provider: SocialProvider
-  interestIds: readonly string[]
+  // Omitted for returning users so sign-in does not replace saved preferences.
+  interestIds?: readonly string[]
 }
 
 export type AuthUser = {
@@ -47,12 +64,35 @@ export async function registerAccount(input: RegisterAccountInput): Promise<Auth
 }
 
 /**
+ * Preview-only email sign-in. Any form-valid input opens the fictional Carol
+ * profile; no account lookup, password verification, or network request occurs.
+ * Never return, store, or log the password. The ID is not a backend user ID.
+ * TODO(backend): Replace this with the agreed sign-in flow and map its result
+ * to AuthResult. Return the existing user's profile and saved interests, without
+ * applying the questionnaire draft. Throw a user-safe Error for failed sign-in.
+ */
+export async function signIn(input: SignInInput): Promise<AuthResult> {
+  await waitForStub()
+  checkStubFailure('sign-in')
+  return {
+    isStub: true,
+    user: {
+      id: 'stub-returning-user',
+      name: 'Carol',
+      email: input.email.trim(),
+      interestIds: [],
+    },
+  }
+}
+
+/**
  * Preview-only social sign-in stub. No provider window or authenticated session
  * is opened, and the returned identity is fictional.
  * TODO(backend): Implement provider authorization and the backend credential
  * exchange, then return AuthResult with isStub: false. A provider name alone
  * is not proof of identity. Use callApi for backend requests and surface
- * cancellation/failure as a user-safe Error. Apply interestIds after sign-in.
+ * cancellation/failure as a user-safe Error. Apply interestIds only when supplied
+ * by onboarding; otherwise preserve the returning user's saved interests.
  */
 export async function signInWithProvider(input: SocialSignInInput): Promise<AuthResult> {
   const providerName = input.provider === 'google' ? 'Google' : 'Apple'
@@ -64,7 +104,7 @@ export async function signInWithProvider(input: SocialSignInInput): Promise<Auth
       name: `${providerName} Preview User`,
       // Real providers may not return an email on every sign-in.
       email: null,
-      interestIds: [...input.interestIds],
+      interestIds: [...(input.interestIds ?? [])],
     },
   }
 }

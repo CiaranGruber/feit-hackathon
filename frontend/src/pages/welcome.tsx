@@ -1,12 +1,9 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import welcomeIllustration from '../assets/onboarding_1.png'
 import { ArrowRight } from '../components/onboarding/arrow-right.tsx'
-import { focusClasses, noticeClasses, primaryActionClasses } from '../components/onboarding/styles.ts'
+import { focusClasses, primaryActionClasses } from '../components/onboarding/styles.ts'
 
 export function Welcome() {
-  const [notice, setNotice] = useState('')
-
   return (
     <section aria-labelledby="welcome-title" className="flex flex-1 flex-col">
       <title>Welcome</title>
@@ -38,20 +35,14 @@ export function Welcome() {
           </Link>
           <div className="mt-5 flex items-center gap-3">
             <span aria-hidden="true" className="h-px flex-1 bg-linear-to-r from-transparent to-[#EBD8AF]" />
-            {/* TODO: Link to the sign-in page when returning-user authentication is implemented. */}
-            <button
-              type="button"
-              onClick={() => setNotice('Sign-in is not available yet. Please try again later.')}
-              className={`min-h-11 cursor-pointer rounded-md px-2 text-[14px] font-semibold hover:text-primary-dark ${focusClasses}`}
+            <Link
+              to="/sign-in"
+              className={`flex min-h-11 items-center rounded-md px-2 text-[14px] font-semibold hover:text-primary-dark ${focusClasses}`}
             >
               I have an account
-            </button>
+            </Link>
             <span aria-hidden="true" className="h-px flex-1 bg-linear-to-l from-transparent to-[#EBD8AF]" />
           </div>
-        </div>
-
-        <div role="status" aria-live="polite" aria-atomic="true">
-          {notice && <p className={noticeClasses}>{notice}</p>}
         </div>
       </div>
     </section>
