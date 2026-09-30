@@ -144,6 +144,8 @@ def complete_task(
     recommendation_rating: int | None = None,
     tips: str | None = None,
     completion_time: datetime | None = None,
+    would_repeat: bool | None = None,
+    perceived_difficulty: int | None = None,
 ):
     """
     Record that a user has completed a task.
@@ -155,6 +157,8 @@ def complete_task(
     :param recommendation_rating: Optional recommendation rating from 1 to 5.
     :param tips: Optional tips for others (max 300 characters).
     :param completion_time: When the task was completed; defaults to now.
+    :param would_repeat: Whether the user would do it again (FR9).
+    :param perceived_difficulty: How hard it felt, 1 to 5 where 3 is just right (FR9).
     :raises KeyError: If the user or task does not exist.
     :raises ValueError: If inputs are invalid or the completion already exists.
     """
@@ -166,6 +170,8 @@ def complete_task(
         raise ValueError("Activity rating must be between 1 and 5.")
     if recommendation_rating is not None and not 1 <= recommendation_rating <= 5:
         raise ValueError("Recommendation rating must be between 1 and 5.")
+    if perceived_difficulty is not None and not 1 <= perceived_difficulty <= 5:
+        raise ValueError("Perceived difficulty must be between 1 and 5.")
 
     if completion_time is None:
         completion_time = datetime.now()
@@ -189,6 +195,8 @@ def complete_task(
                 tips=tips,
                 activity_rating=activity_rating,
                 recommendation_rating=recommendation_rating,
+                would_repeat=would_repeat,
+                perceived_difficulty=perceived_difficulty,
             )
         )
         session.commit()

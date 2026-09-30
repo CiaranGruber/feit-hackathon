@@ -9,7 +9,7 @@ from __future__ import annotations
 import copy
 import logging
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, TypeVar, Union
@@ -53,11 +53,47 @@ class DatabaseConfig:
 
 
 @dataclass(frozen=True)
+class AIConfig:
+    provider: AIProvider
+    api_key: str | None
+    model: str
+    fast_model: str
+    timeout_seconds: int
+    max_retries: int
+
+    @property
+    def enabled(self) -> bool:
+        """Whether live model calls are possible.
+
+        A missing API key is not an error: the AI layer transparently falls back to its
+        deterministic implementations, so the product still runs end to end.
+        """
+        return self.provider is AIProvider.GEMINI and bool(self.api_key)
+
+
+def _default_ai_config() -> AIConfig:
+    """A stubbed AI config, used when a Config is built without one.
+
+    Defaults to the 'stub' provider so code constructing Config directly - tests in
+    particular - can never accidentally reach a live model or consume API quota.
+    """
+    return AIConfig(
+        provider=AIProvider.STUB,
+        api_key=None,
+        model="",
+        fast_model="",
+        timeout_seconds=20,
+        max_retries=0,
+    )
+
+
+@dataclass(frozen=True)
 class Config:
     port: int
     api_key: str
     logging: LoggingConfig
     database: DatabaseConfig
+    ai: AIConfig = field(default_factory=_default_ai_config)
 
 
 @dataclass(frozen=True)
@@ -66,6 +102,7 @@ class EmptyConfig(Config):
     api_key: None = None
     logging: None = None
     database: None = None
+    ai: None = None
 
 # --------------------------------------------------
 # Config Schema
@@ -239,6 +276,11 @@ class DBType(Enum):
     POSTGRES = "postgres"
 
 
+class AIProvider(Enum):
+    GEMINI = "gemini"
+    STUB = "stub"
+
+
 def _is_valid_path(path: Path | str, not_dir: bool | None = None) -> bool:
     try:
         Path(path).resolve()
@@ -274,7 +316,15 @@ SCHEMA = ConfigSchema({
             "user": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, "no_idea_backend"),
             "password": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, required=True),
         }, lambda x: PostgresConfig(**x), evaluate_if_empty=False)
-    }, lambda x: DatabaseConfig(**x), validator_func=validate_correct_database_defined)
+    }, lambda x: DatabaseConfig(**x), validator_func=validate_correct_database_defined),
+    "ai": ConfigSchema({
+        "provider": ConfigOption(lambda x: x in AIProvider, "gemini", True, post_validator_func=lambda x: AIProvider(x)),
+        "api_key": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, None, True),
+        "model": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, "gemini-3.5-flash-lite", True),
+        "fast_model": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, "gemini-3.5-flash-lite", True),
+        "timeout_seconds": ConfigOption(lambda x: isinstance(x, int) and 0 < x <= 120, 20, True),
+        "max_retries": ConfigOption(lambda x: isinstance(x, int) and 0 <= x <= 5, 0, True),
+    }, lambda x: AIConfig(**x))
 }, lambda x: Config(**x))
 
 # --------------------------------------------------
