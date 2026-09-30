@@ -103,7 +103,7 @@ def apply_signals(dimensions: dict[str, float], signals) -> dict[str, float]:
 
 
 async def main() -> None:
-    config_file = DEFAULT_CONFIG_FILE if Path(DEFAULT_CONFIG_FILE).is_file() else Path("config.toml")
+    config_file = DEFAULT_CONFIG_FILE if Path(DEFAULT_CONFIG_FILE).is_file() else Path("../config.toml")
     try:
         parse_config(config_file)
     except (KeyError, ValueError) as exc:

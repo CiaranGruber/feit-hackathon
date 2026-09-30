@@ -19,6 +19,7 @@ DELETE FROM "USER_TAG_RELATIONSHIPS";
 DELETE FROM "TASK_TAG_RELATIONSHIPS";
 DELETE FROM "TASK_TAGS";
 DELETE FROM "TASKS";
+DELETE FROM "IMAGES";
 DELETE FROM "TAGS";
 DELETE FROM "USERS";
 
@@ -38,39 +39,62 @@ INSERT INTO "TAGS" ("id", "name", "icon_name") VALUES
     ('66666666-6666-6666-6666-666666666666', 'outdoor', 'park'),
     ('77777777-7777-7777-7777-777777777777', 'novelty_tolerance', 'explore');
 
--- Tasks
-INSERT INTO "TASKS" ("id", "name", "short_description", "generation_instructions", "image",
+-- Images
+INSERT INTO "IMAGES" ("image_id", "image_path") VALUES
+    (
+        'img00001-0001-0001-0001-000000000001',
+        'ice-skating.png'
+    ),
+    (
+        'img00002-0002-0002-0002-000000000002',
+        'mountainous-landscape.png'
+    ),
+    (
+        'img00003-0003-0003-0003-000000000003',
+        'outdoor-restaurant.png'
+    ),
+    (
+        'img00004-0004-0004-0004-000000000004',
+        'pottery-workshop.png'
+    ),
+    (
+        'img00005-0005-0005-0005-000000000005',
+        'task-placeholder.png'
+    );
+
+-- Tasks. image_id references IMAGES.image_id when a seeded picture fits, otherwise NULL.
+INSERT INTO "TASKS" ("id", "name", "short_description", "generation_instructions", "image_id",
                      "duration_min", "duration_max", "cost_level", "difficulty", "related_interests") VALUES
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Sunset walk', 'A short golden-hour stroll outdoors.', 'Suggest a short outdoor walk timed for golden hour near the user. Keep it low-effort and under 45 minutes.', 'img-sunset-walk', 20, 45, 'free', 1, 'walking,nature,photography'),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Park picnic', 'A simple picnic at a local park.', 'Propose a simple picnic plan for a local park. Include one food idea and one optional activity.', 'img-park-picnic', 60, 120, 'low', 1, 'food,socialising,nature'),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'Sketch something nearby', 'A quick observational sketch of something around you.', 'Encourage a quick observational sketch of an everyday object or view. No artistic experience required.', 'img-sketch-nearby', 15, 30, 'free', 2, 'drawing,art,observation'),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'Playlist for today', 'Build a short playlist for your current mood.', 'Ask the user to build a short playlist that matches their current mood. Cap it at 8 songs.', 'img-playlist', 15, 30, 'free', 1, 'music,curating'),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'Coffee with a friend', 'Catch up with a friend over coffee.', 'Suggest reaching out to one friend for a low-pressure coffee or catch-up this week.', 'img-coffee-friend', 45, 90, 'low', 1, 'coffee,friendship,socialising'),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', 'Board game night', 'Play a short board or card game with others.', 'Propose hosting or joining a short board or card game session with one or more people.', 'img-board-games', 60, 150, 'low', 1, 'board games,strategy,socialising'),
-    ('abcabcab-abab-abab-abab-abcabcabcabc', 'Five-minute stretch', 'A gentle stretch break with no equipment.', 'Guide a gentle full-body stretch routine that takes about five minutes and needs no equipment.', 'img-stretch', 5, 10, 'free', 1, 'fitness,wellbeing'),
-    ('defdefde-fdef-defd-efde-fdefdefdefde', 'Mindful breathing', 'A brief breathing exercise to reset.', 'Offer a short breathing exercise (2-5 minutes) suitable for beginners who feel rushed or tense.', 'img-breathing', 3, 10, 'free', 1, 'mindfulness,wellbeing'),
-    ('12121212-1212-1212-1212-121212121212', 'Learn one new fact', 'Learn one interesting fact and restate it.', 'Pick a light topic and have the user learn one interesting fact, then explain it in their own words.', 'img-new-fact', 10, 20, 'free', 1, 'learning,trivia,reading'),
-    ('34343434-3434-3434-3434-343434343434', 'Try a language phrase', 'Learn one useful phrase in another language.', 'Teach one useful phrase in a language the user is curious about, with pronunciation tips.', 'img-language', 10, 25, 'free', 2, 'languages,learning,travel'),
-    ('10000001-0000-4000-8000-000000000001', 'Beginner pottery session', 'Shape one simple object out of clay.', 'Suggest a beginner pottery class or home clay kit. Emphasise that a wonky first pot is the expected result.', 'img-pottery', 60, 120, 'medium', 2, 'drawing,sculpture,craft'),
-    ('10000002-0000-4000-8000-000000000002', 'Urban photo walk', 'Photograph five details you would normally miss.', 'Send the user on a short neighbourhood walk to photograph five overlooked details. Any camera or phone works.', 'img-photo-walk', 30, 60, 'free', 1, 'photography,walking,observation'),
-    ('10000003-0000-4000-8000-000000000003', 'Indoor bouldering taster', 'Try a beginner climbing session.', 'Propose a first bouldering session at an indoor gym. Mention that shoes are hired at the desk and no rope is involved.', 'img-bouldering', 60, 120, 'medium', 3, 'climbing,fitness,problem-solving'),
-    ('10000004-0000-4000-8000-000000000004', 'Cook an unfamiliar cuisine', 'Cook one dish from a cuisine you have never tried.', 'Help the user pick a cuisine they have never cooked and one achievable dish from it. Keep the shopping list short.', 'img-cook-new', 45, 120, 'low', 2, 'cooking,food,travel'),
-    ('10000005-0000-4000-8000-000000000005', 'Sunrise hike', 'Reach a viewpoint before the sun comes up.', 'Suggest a nearby walk or hike to a viewpoint timed for sunrise. Include a rough departure time.', 'img-sunrise-hike', 90, 240, 'free', 3, 'hiking,walking,nature'),
-    ('10000006-0000-4000-8000-000000000006', 'Write a 500-word story', 'Write something very short. Start with the last line.', 'Prompt a 500-word story, suggesting they write the final line first and work backwards.', 'img-story', 45, 90, 'free', 2, 'writing,reading,storytelling'),
-    ('10000007-0000-4000-8000-000000000007', 'Perform at an open mic', 'Three minutes on a stage, in front of people.', 'Encourage signing up for one open mic slot. Acknowledge the nerves and keep the commitment to a single short piece.', 'img-open-mic', 60, 180, 'low', 5, 'music,performance,public speaking'),
-    ('10000008-0000-4000-8000-000000000008', 'Learn three chords', 'Learn enough to play one song badly.', 'Suggest borrowing or renting an instrument and learning three chords, enough for one recognisable song.', 'img-chords', 45, 90, 'low', 3, 'music,guitar,learning'),
-    ('10000009-0000-4000-8000-000000000009', 'Learn to juggle', 'Three balls, and a lot of dropping.', 'Teach the basic three-ball cascade. Warn that the first forty minutes are mostly picking things up.', 'img-juggle', 30, 60, 'free', 3, 'juggling,coordination,circus'),
-    ('10000010-0000-4000-8000-000000000010', 'Stargazing', 'Find three constellations away from streetlights.', 'Suggest a dark-sky spot and three constellations visible tonight. Recommend a free star-map app.', 'img-stargazing', 45, 120, 'free', 1, 'astronomy,nature,science'),
-    ('10000011-0000-4000-8000-000000000011', 'Birdwatching walk', 'Identify five different birds on a slow walk.', 'Propose a slow local walk with the goal of identifying five bird species. Suggest a free identification app.', 'img-birdwatching', 60, 120, 'free', 2, 'nature,birds,walking,observation'),
-    ('10000012-0000-4000-8000-000000000012', 'Repair something broken', 'Fix something you were going to throw out.', 'Have the user find one broken item they were about to discard and attempt a repair. Point at a repair guide.', 'img-repair', 45, 120, 'free', 3, 'diy,repair,making,problem-solving'),
-    ('10000013-0000-4000-8000-000000000013', 'Make a zine', 'Eight pages, one sheet, one obsession.', 'Walk through folding a single sheet into an eight-page zine about something they care about too much.', 'img-zine', 60, 180, 'free', 2, 'writing,drawing,craft,publishing'),
-    ('10000014-0000-4000-8000-000000000014', 'Beginner dance class', 'Any style. Everyone is uncoordinated in week one.', 'Suggest a drop-in beginner dance class in any style, reassuring them that nobody there is good yet either.', 'img-dance', 60, 90, 'medium', 3, 'dance,music,fitness'),
-    ('10000015-0000-4000-8000-000000000015', 'Host a small dinner', 'Cook for three or four people. One course is plenty.', 'Help plan a small, low-stress dinner for a few friends. One course, made ahead where possible.', 'img-host-dinner', 120, 240, 'medium', 3, 'cooking,hosting,food,socialising'),
-    ('10000016-0000-4000-8000-000000000016', 'Explore an unvisited suburb', 'Get off a few stops early and walk.', 'Pick a nearby suburb the user has never walked around and suggest a loose route with one thing to look for.', 'img-suburb', 60, 180, 'free', 1, 'walking,exploring,travel'),
-    ('10000017-0000-4000-8000-000000000017', 'Learn basic origami', 'One fold, done properly.', 'Teach one origami form well. A crane is traditional and genuinely difficult, so offer an easier option too.', 'img-origami', 20, 45, 'free', 2, 'origami,craft,paper'),
-    ('10000018-0000-4000-8000-000000000018', 'Try an escape room', 'Sixty minutes, one locked room, one group.', 'Propose a beginner-friendly escape room, noting that groups who talk to each other do noticeably better.', 'img-escape-room', 60, 90, 'medium', 2, 'puzzles,problem-solving,games,socialising'),
-    ('10000019-0000-4000-8000-000000000019', 'Volunteer for one morning', 'A single shift, no ongoing commitment.', 'Find a one-off volunteering shift nearby. Stress that it is a single morning, not a standing commitment.', 'img-volunteer', 180, 300, 'free', 2, 'volunteering,community,helping'),
-    ('10000020-0000-4000-8000-000000000020', 'Cold water swim', 'Very cold, then unexpectedly wonderful.', 'Suggest a short, safe open-water or cold-pool swim. Include basic safety advice and keep it brief.', 'img-cold-swim', 20, 45, 'free', 4, 'swimming,nature,endurance');
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Sunset walk', 'A short golden-hour stroll outdoors.', 'Suggest a short outdoor walk timed for golden hour near the user. Keep it low-effort and under 45 minutes.', NULL, 20, 45, 'free', 1, 'walking,nature,photography'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Park picnic', 'A simple picnic at a local park.', 'Propose a simple picnic plan for a local park. Include one food idea and one optional activity.', NULL, 60, 120, 'low', 1, 'food,socialising,nature'),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'Sketch something nearby', 'A quick observational sketch of something around you.', 'Encourage a quick observational sketch of an everyday object or view. No artistic experience required.', NULL, 15, 30, 'free', 2, 'drawing,art,observation'),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'Playlist for today', 'Build a short playlist for your current mood.', 'Ask the user to build a short playlist that matches their current mood. Cap it at 8 songs.', NULL, 15, 30, 'free', 1, 'music,curating'),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'Coffee with a friend', 'Catch up with a friend over coffee.', 'Suggest reaching out to one friend for a low-pressure coffee or catch-up this week.', 'img00003-0003-0003-0003-000000000003', 45, 90, 'low', 1, 'coffee,friendship,socialising'),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', 'Board game night', 'Play a short board or card game with others.', 'Propose hosting or joining a short board or card game session with one or more people.', NULL, 60, 150, 'low', 1, 'board games,strategy,socialising'),
+    ('abcabcab-abab-abab-abab-abcabcabcabc', 'Five-minute stretch', 'A gentle stretch break with no equipment.', 'Guide a gentle full-body stretch routine that takes about five minutes and needs no equipment.', NULL, 5, 10, 'free', 1, 'fitness,wellbeing'),
+    ('defdefde-fdef-defd-efde-fdefdefdefde', 'Mindful breathing', 'A brief breathing exercise to reset.', 'Offer a short breathing exercise (2-5 minutes) suitable for beginners who feel rushed or tense.', NULL, 3, 10, 'free', 1, 'mindfulness,wellbeing'),
+    ('12121212-1212-1212-1212-121212121212', 'Learn one new fact', 'Learn one interesting fact and restate it.', 'Pick a light topic and have the user learn one interesting fact, then explain it in their own words.', NULL, 10, 20, 'free', 1, 'learning,trivia,reading'),
+    ('34343434-3434-3434-3434-343434343434', 'Try a language phrase', 'Learn one useful phrase in another language.', 'Teach one useful phrase in a language the user is curious about, with pronunciation tips.', NULL, 10, 25, 'free', 2, 'languages,learning,travel'),
+    ('10000001-0000-4000-8000-000000000001', 'Beginner pottery session', 'Shape one simple object out of clay.', 'Suggest a beginner pottery class or home clay kit. Emphasise that a wonky first pot is the expected result.', 'img00004-0004-0004-0004-000000000004', 60, 120, 'medium', 2, 'drawing,sculpture,craft'),
+    ('10000002-0000-4000-8000-000000000002', 'Urban photo walk', 'Photograph five details you would normally miss.', 'Send the user on a short neighbourhood walk to photograph five overlooked details. Any camera or phone works.', NULL, 30, 60, 'free', 1, 'photography,walking,observation'),
+    ('10000003-0000-4000-8000-000000000003', 'Indoor bouldering taster', 'Try a beginner climbing session.', 'Propose a first bouldering session at an indoor gym. Mention that shoes are hired at the desk and no rope is involved.', NULL, 60, 120, 'medium', 3, 'climbing,fitness,problem-solving'),
+    ('10000004-0000-4000-8000-000000000004', 'Cook an unfamiliar cuisine', 'Cook one dish from a cuisine you have never tried.', 'Help the user pick a cuisine they have never cooked and one achievable dish from it. Keep the shopping list short.', NULL, 45, 120, 'low', 2, 'cooking,food,travel'),
+    ('10000005-0000-4000-8000-000000000005', 'Sunrise hike', 'Reach a viewpoint before the sun comes up.', 'Suggest a nearby walk or hike to a viewpoint timed for sunrise. Include a rough departure time.', 'img00002-0002-0002-0002-000000000002', 90, 240, 'free', 3, 'hiking,walking,nature'),
+    ('10000006-0000-4000-8000-000000000006', 'Write a 500-word story', 'Write something very short. Start with the last line.', 'Prompt a 500-word story, suggesting they write the final line first and work backwards.', NULL, 45, 90, 'free', 2, 'writing,reading,storytelling'),
+    ('10000007-0000-4000-8000-000000000007', 'Perform at an open mic', 'Three minutes on a stage, in front of people.', 'Encourage signing up for one open mic slot. Acknowledge the nerves and keep the commitment to a single short piece.', NULL, 60, 180, 'low', 5, 'music,performance,public speaking'),
+    ('10000008-0000-4000-8000-000000000008', 'Learn three chords', 'Learn enough to play one song badly.', 'Suggest borrowing or renting an instrument and learning three chords, enough for one recognisable song.', NULL, 45, 90, 'low', 3, 'music,guitar,learning'),
+    ('10000009-0000-4000-8000-000000000009', 'Learn to juggle', 'Three balls, and a lot of dropping.', 'Teach the basic three-ball cascade. Warn that the first forty minutes are mostly picking things up.', NULL, 30, 60, 'free', 3, 'juggling,coordination,circus'),
+    ('10000010-0000-4000-8000-000000000010', 'Stargazing', 'Find three constellations away from streetlights.', 'Suggest a dark-sky spot and three constellations visible tonight. Recommend a free star-map app.', NULL, 45, 120, 'free', 1, 'astronomy,nature,science'),
+    ('10000011-0000-4000-8000-000000000011', 'Birdwatching walk', 'Identify five different birds on a slow walk.', 'Propose a slow local walk with the goal of identifying five bird species. Suggest a free identification app.', NULL, 60, 120, 'free', 2, 'nature,birds,walking,observation'),
+    ('10000012-0000-4000-8000-000000000012', 'Repair something broken', 'Fix something you were going to throw out.', 'Have the user find one broken item they were about to discard and attempt a repair. Point at a repair guide.', NULL, 45, 120, 'free', 3, 'diy,repair,making,problem-solving'),
+    ('10000013-0000-4000-8000-000000000013', 'Make a zine', 'Eight pages, one sheet, one obsession.', 'Walk through folding a single sheet into an eight-page zine about something they care about too much.', NULL, 60, 180, 'free', 2, 'writing,drawing,craft,publishing'),
+    ('10000014-0000-4000-8000-000000000014', 'Beginner dance class', 'Any style. Everyone is uncoordinated in week one.', 'Suggest a drop-in beginner dance class in any style, reassuring them that nobody there is good yet either.', NULL, 60, 90, 'medium', 3, 'dance,music,fitness'),
+    ('10000015-0000-4000-8000-000000000015', 'Host a small dinner', 'Cook for three or four people. One course is plenty.', 'Help plan a small, low-stress dinner for a few friends. One course, made ahead where possible.', NULL, 120, 240, 'medium', 3, 'cooking,hosting,food,socialising'),
+    ('10000016-0000-4000-8000-000000000016', 'Explore an unvisited suburb', 'Get off a few stops early and walk.', 'Pick a nearby suburb the user has never walked around and suggest a loose route with one thing to look for.', NULL, 60, 180, 'free', 1, 'walking,exploring,travel'),
+    ('10000017-0000-4000-8000-000000000017', 'Learn basic origami', 'One fold, done properly.', 'Teach one origami form well. A crane is traditional and genuinely difficult, so offer an easier option too.', NULL, 20, 45, 'free', 2, 'origami,craft,paper'),
+    ('10000018-0000-4000-8000-000000000018', 'Try an escape room', 'Sixty minutes, one locked room, one group.', 'Propose a beginner-friendly escape room, noting that groups who talk to each other do noticeably better.', NULL, 60, 90, 'medium', 2, 'puzzles,problem-solving,games,socialising'),
+    ('10000019-0000-4000-8000-000000000019', 'Volunteer for one morning', 'A single shift, no ongoing commitment.', 'Find a one-off volunteering shift nearby. Stress that it is a single morning, not a standing commitment.', NULL, 180, 300, 'free', 2, 'volunteering,community,helping'),
+    ('10000020-0000-4000-8000-000000000020', 'Cold water swim', 'Very cold, then unexpectedly wonderful.', 'Suggest a short, safe open-water or cold-pool swim. Include basic safety advice and keep it brief.', NULL, 20, 45, 'free', 4, 'swimming,nature,endurance');
 
 -- Task tags: dimensions each task is genuinely about, weakest first
 INSERT INTO "TASK_TAGS" ("task_id", "tag_id", "position") VALUES

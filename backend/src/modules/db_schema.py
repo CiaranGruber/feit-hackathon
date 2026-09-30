@@ -25,6 +25,7 @@ TAG_NAME_LENGTH = 32
 ICON_NAME_LENGTH = 64
 SHORT_DESCRIPTION_LENGTH = 200
 COMMENT_LENGTH = 300
+IMAGE_PATH_LENGTH = 255
 
 
 class TaskTier(str, Enum):
@@ -66,6 +67,14 @@ class CostLevel(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
 
+class Image(Base):
+    """A stored image referenced by path."""
+
+    __tablename__ = "IMAGES"
+
+    image_id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
+    image_path: Mapped[str] = mapped_column(String(IMAGE_PATH_LENGTH), nullable=False)
+
 
 class Task(Base):
     """A task."""
@@ -85,7 +94,12 @@ class Task(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     short_description: Mapped[str] = mapped_column(String(SHORT_DESCRIPTION_LENGTH), nullable=False)
     generation_instructions: Mapped[str] = mapped_column(Text, nullable=False)
-    image: Mapped[str] = mapped_column(String, nullable=False)
+    image_id: Mapped[str | None] = mapped_column(
+        String(ID_LENGTH),
+        ForeignKey("IMAGES.image_id"),
+        nullable=True,
+    )
+    """``IMAGES.image_id`` for this task's picture, or None when it has none."""
 
     # The Discovery Engine treats duration and cost as hard constraints: an activity that
     # cannot fit the user's stated time or budget is dropped rather than ranked low, since

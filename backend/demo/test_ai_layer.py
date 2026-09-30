@@ -15,7 +15,7 @@ from pathlib import Path
 from src import DEFAULT_CONFIG_FILE
 from src.config import parse_config
 
-parse_config(DEFAULT_CONFIG_FILE if Path(DEFAULT_CONFIG_FILE).is_file() else Path("config.toml"))
+parse_config(DEFAULT_CONFIG_FILE if Path(DEFAULT_CONFIG_FILE).is_file() else Path("../config.toml"))
 
 from src.modules.ai import types as T
 from src.modules.ai import (profile_generator as pg, context_extractor as ce,

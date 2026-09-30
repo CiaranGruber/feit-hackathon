@@ -214,6 +214,33 @@ erDiagram
 
 ---
 
+## Adding demos
+
+Manual demonstration scripts and end-to-end harnesses live under `demo/` at the backend root. They are not pytest suites (`test/` stays for automated CI tests) and they are not part of the runtime package (`src/`).
+
+### Pattern
+
+1. Add a new script under `demo/`, named for what it shows (for example `demo_loop.py`, `ai_smoke_test.py`).
+2. Keep demos self-contained: parse config, initialise the app if needed, then call into `src.modules` the same way production code would.
+3. Prefer printing clear stage-by-stage output so a human can follow the flow on stage or while debugging prompts.
+4. Document how to run the script in its module docstring, including any prerequisites (for example `python scripts/setup_db.py` or an `[ai]` API key).
+5. Run demos from the backend root so `./images`, `config.toml`, and imports of `src` resolve correctly:
+
+```bash
+python demo/demo_loop.py
+```
+
+### Guidelines
+
+- One concern per demo script (full product loop, AI smoke pass, fake-provider parse checks, and so on).
+- Demos may use the real database and seed data; reset only the rows they own so re-runs stay repeatable.
+- Do not put demo-only helpers or fixtures into `src/` unless production code also needs them.
+- Prefer graceful behaviour without secrets when practical (for example AI deterministic fallbacks) so a demo still runs offline; say so in the docstring.
+- Do not register `demo/` scripts with pytest. CI continues to run only `test/`.
+- When docs mention a demo, point at the path under `demo/` (for example `python demo/demo_loop.py`).
+
+---
+
 ## Interacting with the database and external providers (modules)
 
 All non-HTTP integration work belongs under `src/modules/`. Endpoints call modules; modules talk to the database or external services.

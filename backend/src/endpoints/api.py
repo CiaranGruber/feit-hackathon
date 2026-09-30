@@ -6,6 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from src.endpoints.util import verify_api_key
 from src.endpoints.tasks import router as tasks_router
 from src.endpoints.users import router as users_router
+from src.endpoints.images import router as images_router
 from src.modules import users
 
 api = FastAPI()
@@ -20,6 +21,7 @@ api.add_middleware(
 
 api.include_router(tasks_router)
 api.include_router(users_router)
+api.include_router(images_router)
 
 
 @api.get("/")

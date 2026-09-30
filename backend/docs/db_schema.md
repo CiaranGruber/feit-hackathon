@@ -12,6 +12,7 @@ erDiagram
     TAGS ||--|{ USER_TAG_RELATIONSHIPS : scored_on
     USERS ||--o{ USER_TASK_COMPLETIONS : completes
     TASKS ||--o{ USER_TASK_COMPLETIONS : completed_in
+    IMAGES |o--o{ TASKS : illustrates
     USERS {
         string id PK "36 characters"
         string first_name "not null"
@@ -21,12 +22,16 @@ erDiagram
         string name "not null, 16 characters"
         string icon_name "not null, 64 characters"
     }
+    IMAGES {
+        string image_id PK "36 characters"
+        string image_path "not null, 255 characters, relative to images/"
+    }
     TASKS {
         string id PK "36 characters"
         string name "not null, 255 characters"
         string short_description "not null, 200 characters"
         string generation_instructions "not null, long text"
-        string image "not null, image id"
+        string image_id FK "36 characters, nullable"
     }
     TASK_TAGS {
         string task_id PK,FK "36 characters, not null"
