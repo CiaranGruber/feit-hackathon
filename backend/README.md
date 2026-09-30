@@ -13,6 +13,10 @@ Prior to running the program, you must ensure you complete the following steps:
 4. (Optional) Create a python `.venv` folder by running the command `python -m venv .venv` from the root directory.
 5. Install all packages listed in `./requirements.txt` into your python installation
 
+### Setting up the database
+
+With the virtual environment activated and `config.toml` configured, you can use `python scripts/setup_db.py` to set up the database schema and initialise it with some seed data.
+
 ### Running the program
 
 Once all pre-requisites are satisfied, you can run the program using the command: `python -m src`. This will set up the FastAPI server which you can then query via the frontend website or using your preferred application (e.g. [Postman](https://www.postman.com/downloads/))

@@ -2,5 +2,6 @@ fastapi
 sqlalchemy
 uvicorn
 starlette
-google-genai
 pydantic
+pytest
+google-genai

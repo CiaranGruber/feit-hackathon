@@ -1,13 +1,14 @@
 from typing import Annotated
 
-from fastapi import FastAPI, Header, HTTPException, Depends, Path
+from fastapi import FastAPI, Depends, Path, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
-from src.config import get_config, _LOGGER
+from src.endpoints.util import verify_api_key
+from src.endpoints.tasks import router as tasks_router
+from src.endpoints.users import router as users_router
 from src.modules import users
 
 api = FastAPI()
-
 
 api.add_middleware(
     CORSMiddleware,
@@ -17,13 +18,8 @@ api.add_middleware(
     allow_headers=["*"],
 )
 
-
-def verify_api_key(x_api_key: str = Header(...)):
-    """Verifies an API key from the header of a request"""
-    if x_api_key != get_config().api_key:
-        _LOGGER.info("An invalid API key was provided to the server")
-        raise HTTPException(status_code=401, detail="Invalid API Key")
-    return x_api_key
+api.include_router(tasks_router)
+api.include_router(users_router)
 
 
 @api.get("/")
