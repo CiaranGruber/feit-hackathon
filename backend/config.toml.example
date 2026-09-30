@@ -9,7 +9,7 @@
 #level = "info"
 
 [database]
-# The database type (either 'sqlite3' or 'postgresql')
+# The database type (either 'sqlite3' or 'postgres')
 #type = "sqlite3"
 
 [database.sqlite3]
@@ -27,3 +27,23 @@
 #user = "no_idea_backend"
 # The database password
 #password = "fake-db-password"
+
+[ai]
+# The LLM provider used by the AI layer (either 'gemini' or 'stub').
+# 'stub' disables all network calls and uses the deterministic fallbacks.
+#provider = "gemini"
+# The Google AI Studio API key. Get a free one at https://aistudio.google.com.
+# If this is left unset, the AI layer automatically runs in fallback mode.
+#api_key = "fake-ai-api-key"
+# Model used for reasoning-heavy work (profile generation, reflection analysis, companion replies).
+# Both default to flash-lite: on the free tier gemini-3.8-flash allows only 20 requests per DAY,
+# which is about two demo runs, where flash-lite allows 15 per minute and 500 per day.
+#model = "gemini-3.5-flash-lite"
+# Model used for high-volume work (context extraction, recommendation explanations)
+#fast_model = "gemini-3.5-flash-lite"
+# How long to wait on a single model call before falling back
+#timeout_seconds = 20
+# How many times to retry a failed model call before falling back. Defaults to 0 because the
+# google-genai SDK already retries internally, so retries here multiply the requests one
+# logical call consumes - expensive against a per-day quota.
+#max_retries = 0
