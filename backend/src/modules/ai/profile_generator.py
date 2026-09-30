@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from src.modules.ai import fallbacks
 from src.modules.ai.provider import ProviderError, get_provider
 from src.modules.ai.types import (
-    CATEGORIES,
+    DIMENSIONS,
     DiscoveryProfile,
     QuestionnaireResponse,
     normalise_dimensions,
@@ -49,12 +49,12 @@ listing both artistic and logical interests should score high on BOTH.
 2. hands_on has no slider. Infer it entirely from stated interests.
 3. Use the full range. Avoid clustering everything near 0.5 - a profile that says nothing \
 produces recommendations that say nothing.
-4. underexplored MUST be 3-5 values chosen verbatim from this exact list, and nothing else:
-craft, creative, food, games, learning, music, nature, outdoor, performance, physical, social, wellbeing
-Pick the ones the user's answers do NOT cover. Do not invent your own wording, do not add
-descriptive detail, and do not list areas they already engage with. These strings are matched
-exactly against the activity catalogue, so "high-exertion physical sports" is useless where
-"physical" is correct.
+4. underexplored MUST be 2-4 values chosen verbatim from the seven dimension names above,
+and nothing else: creative, analytical, hands_on, physical, social, outdoor, novelty_tolerance
+List the dimensions the user scores LOW on and whose answers show no engagement - these are
+the areas discovery should stretch them toward. Do not invent your own wording, do not add
+descriptive detail. These strings are matched exactly against the activity catalogue, so
+"high-exertion physical sports" is useless where "physical" is correct.
 5. summary is one short user-facing line of 3-5 traits separated by " • ", \
 e.g. "Creative • Independent • Relaxed • Moderately adventurous". Describe their discovery \
 style, not their hobbies."""
@@ -71,7 +71,7 @@ class _ProfileSchema(BaseModel):
     outdoor: float = Field(ge=0.0, le=1.0)
     novelty_tolerance: float = Field(ge=0.0, le=1.0)
     normalised_interests: list[str]
-    underexplored: list[str] = Field(description=f"3-5 values from: {', '.join(CATEGORIES)}")
+    underexplored: list[str] = Field(description=f"2-4 values from: {', '.join(DIMENSIONS)}")
     summary: str
 
 
@@ -127,7 +127,7 @@ async def generate_profile(response: QuestionnaireResponse) -> DiscoveryProfile:
         emerging_interests=[],
         # Filtered as well as prompted: an off-vocabulary value would not fail, it would
         # quietly stop the engine's underexplored novelty boost from ever firing.
-        underexplored=[c for c in (v.lower().strip() for v in result.underexplored) if c in CATEGORIES],
+        underexplored=[c for c in (v.lower().strip() for v in result.underexplored) if c in DIMENSIONS],
         typical_duration_minutes=response.time_availability_minutes,
         budget_level=response.budget,
         summary=result.summary or fallbacks.describe_profile(dimensions),

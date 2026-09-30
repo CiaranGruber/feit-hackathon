@@ -34,7 +34,6 @@ from src.modules.ai import (
     generate_explanation,
     generate_profile,
     fallback_reason,
-    get_provider,
     nudge,
 )
 

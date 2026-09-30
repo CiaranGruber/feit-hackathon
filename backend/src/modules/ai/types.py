@@ -36,18 +36,6 @@ catalogue use these same keys so that profiles and activities can be compared di
 can legitimately score high on both.
 """
 
-CATEGORIES: tuple[str, ...] = (
-    "craft", "creative", "food", "games", "learning", "music",
-    "nature", "outdoor", "performance", "physical", "social", "wellbeing",
-)
-"""The activity category vocabulary, shared with the catalogue.
-
-Like ``DIMENSIONS`` this is a contract, not a suggestion. The Discovery Engine tests
-``category in profile.underexplored`` by exact set membership, so a profile describing an
-unexplored area as "high-exertion physical sports" rather than "physical" silently loses the
-novelty signal instead of failing loudly.
-"""
-
 NEUTRAL = 0.5
 
 
@@ -257,7 +245,12 @@ class DiscoveryProfile:
     emerging_interests: list[str] = field(default_factory=list)
     """Interests discovered through reflection rather than stated up front."""
     underexplored: list[str] = field(default_factory=list)
-    """Areas with little or no evidence either way."""
+    """``DIMENSIONS`` keys with little or no evidence either way.
+
+    Must use the dimension vocabulary exactly: the Discovery Engine tests membership of this
+    list by exact string match, so a descriptive phrase like "high-exertion physical sports"
+    loses the novelty signal silently instead of failing loudly.
+    """
     typical_duration_minutes: int | None = None
     budget_level: BudgetLevel | None = None
     summary: str = ""

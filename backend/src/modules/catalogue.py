@@ -1,91 +1,129 @@
 """
 Activity Catalogue.
 
-Loads the activity catalogue that the Discovery Engine ranks over.
+Reads tasks from the database and presents them to the Discovery Engine as ``Activity``
+objects.
 
-Activities currently live in ``src/data/activities.json`` rather than the database. The
-product document is explicit that the catalogue should be structured data rather than
-something an LLM invents per request, and a JSON file provides that without waiting on the
-schema. When an activities table exists, this module becomes the seeder for it and callers
-do not change.
+This exists alongside ``tasks.py`` rather than reusing ``get_available_tasks()`` because the
+two have different consumers. That function aggregates user feedback for the API and omits
+the task id; the engine needs the id for deduplication and quest records, plus the duration,
+cost and difficulty columns it treats as hard constraints. Keeping them separate means the
+API shape and the engine's shape can each change without disturbing the other.
+
+Terminology: a "task" in the database is an "activity" to the engine, and a "tag" is one of
+the seven preference dimensions. See ``DIMENSIONS`` in ``ai/types.py``.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
 
-from src.modules.ai.types import CATEGORIES, Activity, BudgetLevel, normalise_dimensions
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from src.app import app
+from src.modules.ai.types import DIMENSIONS, Activity, BudgetLevel, normalise_dimensions
+from src.modules.db_schema import Tag, Task, TaskTag, TaskTagRelationship
 
 _LOGGER = logging.getLogger(__name__)
-
-CATALOGUE_FILE = Path(__file__).parent.parent / "data" / "activities.json"
 
 _ACTIVITIES: list[Activity] | None = None
 
 
 class CatalogueError(Exception):
-    """Raised when the catalogue file is missing or malformed."""
+    """Raised when the catalogue cannot be read or is inconsistent."""
 
 
-def _parse(raw: dict) -> Activity:
-    """Builds an Activity from one catalogue entry, normalising its attributes."""
-    try:
-        return Activity(
-            id=raw["id"],
-            name=raw["name"],
-            description=raw["description"],
-            categories=list(raw["categories"]),
-            # Normalising here means a typo in the data cannot produce a missing dimension
-            # key and break scoring at request time.
-            attributes=normalise_dimensions(raw["attributes"]),
-            duration_min=int(raw["duration_min"]),
-            duration_max=int(raw["duration_max"]),
-            cost_level=BudgetLevel(raw["cost_level"]),
-            difficulty=int(raw["difficulty"]),
-            related_interests=list(raw.get("related_interests", [])),
+def _build(task: Task, tags: list[str], relationships: dict[str, float]) -> Activity:
+    """Assembles one Activity from its task row, ordered tags and dimension values."""
+    unknown = [name for name in relationships if name not in DIMENSIONS]
+    if unknown:
+        raise CatalogueError(
+            f"Task {task.id!r} has tags outside the dimension vocabulary: {unknown}. "
+            f"Valid tags are: {', '.join(DIMENSIONS)}"
         )
-    except (KeyError, ValueError, TypeError) as exc:
-        raise CatalogueError(f"Malformed catalogue entry {raw.get('id', '(no id)')!r}: {exc}") from exc
+    try:
+        cost_level = BudgetLevel(task.cost_level)
+    except ValueError as exc:
+        raise CatalogueError(f"Task {task.id!r} has an invalid cost_level {task.cost_level!r}") from exc
+
+    return Activity(
+        id=task.id,
+        name=task.name,
+        description=task.short_description,
+        # The dimensions this task is genuinely about, strongest last. Used for
+        # recommendation diversity so one result set does not repeat itself.
+        categories=tags,
+        # Normalised here so a gap in the seed data cannot produce a missing dimension key
+        # and break scoring at request time.
+        attributes=normalise_dimensions(relationships),
+        duration_min=task.duration_min,
+        duration_max=task.duration_max,
+        cost_level=cost_level,
+        difficulty=task.difficulty,
+        related_interests=[i.strip() for i in task.related_interests.split(",") if i.strip()],
+    )
 
 
 def load_activities(force_reload: bool = False) -> list[Activity]:
-    """Loads and caches the catalogue.
+    """Loads every task from the database as an Activity, and caches the result.
 
-    :param force_reload: Re-read the file even if it is already cached
-    :return: Every activity in the catalogue
-    :raises CatalogueError: If the file is missing, unreadable or malformed
+    The whole catalogue is loaded rather than filtered in SQL. The engine ranks candidates
+    against each other - closest to a novelty target, not sharing a category with an earlier
+    pick - which cannot be expressed as a WHERE clause, and the duplicated filtering would
+    drift out of step with ``context_fit``.
+
+    :param force_reload: Re-query even if the catalogue is already cached
+    :return: Every task in the catalogue
+    :raises CatalogueError: If a task's tags or cost level are invalid
     """
     global _ACTIVITIES
     if _ACTIVITIES is not None and not force_reload:
         return _ACTIVITIES
 
-    try:
-        raw = json.loads(CATALOGUE_FILE.read_text())
-    except FileNotFoundError as exc:
-        raise CatalogueError(f"Catalogue file not found at {CATALOGUE_FILE}") from exc
-    except json.JSONDecodeError as exc:
-        raise CatalogueError(f"Catalogue file is not valid JSON: {exc}") from exc
+    with Session(app().db_engine) as session:
+        tasks = list(session.scalars(select(Task)))
 
-    activities = [_parse(entry) for entry in raw]
-    seen: set[str] = set()
-    for activity in activities:
-        if activity.id in seen:
-            raise CatalogueError(f"Duplicate activity id in catalogue: {activity.id!r}")
-        seen.add(activity.id)
-        # Fail loudly on an off-vocabulary category. The engine matches these against a
-        # profile's underexplored list by exact membership, so a stray value would not
-        # error - it would quietly stop the novelty boost from ever firing.
-        unknown = [c for c in activity.categories if c not in CATEGORIES]
-        if unknown:
-            raise CatalogueError(
-                f"Activity {activity.id!r} uses categories outside the shared vocabulary: "
-                f"{unknown}. Valid values are: {', '.join(CATEGORIES)}"
-            )
+        # Ordered by position so the strongest dimension ends up last, per the TASK_TAGS
+        # convention that the highest position is the most specific.
+        tag_rows = session.execute(
+            select(TaskTag.task_id, Tag.name)
+            .join(Tag, Tag.id == TaskTag.tag_id)
+            .order_by(TaskTag.task_id, TaskTag.position)
+        ).all()
+        tags_by_task: dict[str, list[str]] = {}
+        for task_id, tag_name in tag_rows:
+            tags_by_task.setdefault(task_id, []).append(tag_name)
+
+        value_rows = session.execute(
+            select(TaskTagRelationship.task_id, Tag.name, TaskTagRelationship.value)
+            .join(Tag, Tag.id == TaskTagRelationship.tag_id)
+        ).all()
+        values_by_task: dict[str, dict[str, float]] = {}
+        for task_id, tag_name, value in value_rows:
+            values_by_task.setdefault(task_id, {})[tag_name] = value
+
+        activities = [
+            _build(task, tags_by_task.get(task.id, []), values_by_task.get(task.id, {}))
+            for task in tasks
+        ]
+
+    if not activities:
+        raise CatalogueError(
+            "No tasks found in the database. Run 'python scripts/setup_db.py' to create and seed it."
+        )
+
+    incomplete = [a.id for a in activities if len(values_by_task.get(a.id, {})) != len(DIMENSIONS)]
+    if incomplete:
+        # Not fatal - missing dimensions default to neutral - but it silently flattens
+        # scoring for those tasks, so it should be visible.
+        _LOGGER.warning(
+            f"{len(incomplete)} task(s) do not have a value for all {len(DIMENSIONS)} dimensions "
+            f"and will score as neutral on the missing ones: {incomplete[:5]}"
+        )
 
     _ACTIVITIES = activities
-    _LOGGER.info(f"Loaded {len(activities)} activities from the catalogue")
+    _LOGGER.info(f"Loaded {len(activities)} activities from the database")
     return _ACTIVITIES
 
 
@@ -100,6 +138,17 @@ def get_activity(activity_id: str) -> Activity:
     raise KeyError(f"Activity '{activity_id}' not found in the catalogue.")
 
 
+def find_activity(name: str) -> Activity:
+    """Gets one activity by exact name. Convenience for demos and tests.
+
+    :raises KeyError: If no activity has that name
+    """
+    for activity in load_activities():
+        if activity.name == name:
+            return activity
+    raise KeyError(f"Activity named '{name}' not found in the catalogue.")
+
+
 def all_categories() -> list[str]:
-    """Every distinct category in the catalogue, sorted."""
+    """Every dimension that at least one activity is prominently about, sorted."""
     return sorted({category for activity in load_activities() for category in activity.categories})

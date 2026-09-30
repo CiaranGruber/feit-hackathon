@@ -94,12 +94,10 @@ _INTEREST_HINTS: dict[str, dict[str, float]] = {
 Deliberately coarse: this is a floor under the model, not a replacement for it.
 """
 
-_HANDS_ON_CATEGORIES = ("craft", "making", "cooking", "building", "art")
+_HANDS_ON_KEYWORDS = ("craft", "making", "cooking", "building", "art")
 
-_ALL_CATEGORIES = (
-    "creative", "physical", "outdoor", "social", "learning",
-    "craft", "food", "music", "performance", "nature", "games", "wellbeing",
-)
+_UNDEREXPLORED_THRESHOLD = 0.4
+"""Below this, a dimension counts as somewhere the user has not gone."""
 
 
 # --------------------------------------------------
@@ -144,14 +142,15 @@ def generate_profile(response: QuestionnaireResponse) -> DiscoveryProfile:
         for dimension, amount in nudges.items():
             dimensions[dimension] = nudge(dimensions[dimension], amount)
 
-    if any(category in haystack for category in _HANDS_ON_CATEGORIES):
+    if any(category in haystack for category in _HANDS_ON_KEYWORDS):
         dimensions["hands_on"] = nudge(dimensions["hands_on"], 0.20)
 
     return DiscoveryProfile(
         dimensions=normalise_dimensions(dimensions),
         stated_interests=interests,
         emerging_interests=[],
-        underexplored=[c for c in _ALL_CATEGORIES if c not in haystack][:5],
+        # Dimensions the user scores low on, which is what discovery should stretch.
+        underexplored=[d for d in DIMENSIONS if dimensions[d] < _UNDEREXPLORED_THRESHOLD][:4],
         typical_duration_minutes=response.time_availability_minutes,
         budget_level=response.budget,
         summary=describe_profile(dimensions),

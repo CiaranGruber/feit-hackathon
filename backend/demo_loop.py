@@ -17,7 +17,8 @@ import asyncio
 from pathlib import Path
 
 from src import DEFAULT_CONFIG_FILE
-from src.config import parse_config
+from src.app import init_app
+from src.config import get_config, parse_config
 from src.modules.ai import (
     BudgetLevel,
     DIMENSIONS,
@@ -29,10 +30,9 @@ from src.modules.ai import (
     companion_reply,
     generate_profile,
     fallback_reason,
-    get_provider,
     nudge,
 )
-from src.modules.catalogue import get_activity, load_activities
+from src.modules.catalogue import CatalogueError, find_activity, load_activities
 from src.modules.discovery import DiscoveryHistory, explain, recommend
 
 RULE = "=" * 78
@@ -93,10 +93,15 @@ async def main() -> None:
         print(f"Could not load {config_file} ({exc}). Copy config.toml.example to config.toml first.")
         return
 
-    catalogue = load_activities()
+    init_app(get_config())
+    try:
+        catalogue = load_activities()
+    except CatalogueError as exc:
+        print(f"Could not read the catalogue: {exc}")
+        return
     reason = fallback_reason()
     mode = "LIVE MODEL" if reason is None else f"FALLBACK ({reason})"
-    print(f"\nDiscovery loop demo - {len(catalogue)} activities in catalogue - AI running in {mode} mode")
+    print(f"\nDiscovery loop demo - {len(catalogue)} activities from the database - AI running in {mode} mode")
 
     # ------------------------------------------------------------------ onboard
     heading("STAGE 1-2.  ONBOARDING -> DISCOVERY PROFILE")
@@ -132,11 +137,13 @@ async def main() -> None:
     print(f"\nExtracted context: intent={context.intent.value}, duration={context.duration_minutes}min, "
           f"budget={context.budget_level}, energy={context.energy_level}, when={context.when}")
     print("The same engine now runs with that context layered over the stored profile:")
-    show_recommendations(await explain(profile, recommend(profile, context=context), context), show_why=False)
+    # No explain() call here: these are shown without "Why this?" lines, and generating
+    # three explanations only to discard them wastes three requests of a tight quota.
+    show_recommendations(recommend(profile, context=context), show_why=False)
 
     # ------------------------------------------------------------------ try + reflect
     heading("STAGE 5-6.  COMPLETE A QUEST AND REFLECT  (FR7, FR8, FR9)")
-    quest = get_activity("beginner-pottery")
+    quest = find_activity("Beginner pottery session")
     reflection = ReflectionInput(
         rating=5, would_repeat=True, perceived_difficulty=3,
         text="I didn't expect to enjoy this that much. I really liked making something with my hands, "

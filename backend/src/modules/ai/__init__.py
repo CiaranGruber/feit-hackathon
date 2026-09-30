@@ -29,7 +29,6 @@ from src.modules.ai.profile_generator import generate_profile
 from src.modules.ai.provider import ProviderError, fallback_reason, get_provider, reset_provider
 from src.modules.ai.reflection_analyser import analyse_reflection
 from src.modules.ai.types import (
-    CATEGORIES,
     DIMENSIONS,
     SIGNAL_WEIGHTS,
     Activity,
@@ -63,7 +62,6 @@ __all__ = [
     "analyse_reflection",
     "companion_reply",
     # Vocabulary
-    "CATEGORIES",
     "DIMENSIONS",
     "SIGNAL_WEIGHTS",
     "normalise_dimensions",

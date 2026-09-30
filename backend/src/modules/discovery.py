@@ -179,17 +179,28 @@ def preference_fit(profile: DiscoveryProfile, activity: Activity) -> float:
     return clamp(1.0 - error / total_salience)
 
 
+_OVERLAP_DECAY = 0.25
+"""How much unexplained novelty remains after each matching interest."""
+
+
 def _interest_overlap(profile: DiscoveryProfile, activity: Activity) -> float:
-    """Fraction of an activity's related interests the user already holds."""
+    """How familiar an activity's subject matter already is to the user.
+
+    Saturating rather than proportional. A ratio of matches to listed interests punishes
+    activities for being well described: urban sketching tagged "drawing, art, observation"
+    would score two-thirds novel to someone who draws, purely because it also lists two tags
+    they happen not to have. One match against a stated hobby means the activity is largely
+    familiar, and further matches add less.
+
+    :return: 0.0 (nothing in common) to 1.0 (thoroughly familiar territory)
+    """
     related = {i.lower().strip() for i in activity.related_interests if i.strip()}
-    if not related:
-        return 0.0
     known = {i.lower().strip() for i in (*profile.stated_interests, *profile.emerging_interests)}
-    if not known:
+    if not related or not known:
         return 0.0
     # Substring matching so "photography" recognises "photo walk".
     hits = sum(1 for r in related if any(r in k or k in r for k in known))
-    return clamp(hits / len(related))
+    return clamp(1.0 - _OVERLAP_DECAY ** hits) if hits else 0.0
 
 
 def novelty(profile: DiscoveryProfile, activity: Activity, history: DiscoveryHistory) -> float:
