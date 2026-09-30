@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import logging
 
+from pydantic import BaseModel, Field
+
 from src.modules.ai import fallbacks
 from src.modules.ai.provider import ProviderError, get_provider
 from src.modules.ai.types import (
@@ -75,7 +77,7 @@ def _describe_profile(profile: DiscoveryProfile, activity: Activity) -> str:
     return "\n".join(lines)
 
 
-def _prompt(profile: DiscoveryProfile, activity: Activity, tier: Tier, context: DiscoveryContext | None) -> str:
+def _profile_section(profile: DiscoveryProfile, activity: Activity) -> list[str]:
     sections = [
         "User's Discovery Profile (0.0 to 1.0, 0.5 is neutral):",
         _describe_profile(profile, activity),
@@ -85,35 +87,60 @@ def _prompt(profile: DiscoveryProfile, activity: Activity, tier: Tier, context: 
         sections.append(f"Recently discovered they enjoy: {', '.join(profile.emerging_interests)}")
     if profile.underexplored:
         sections.append(f"Has not explored much: {', '.join(profile.underexplored)}")
+    return sections
+
+
+def _context_section(context: DiscoveryContext | None) -> list[str]:
+    if context is None:
+        return []
+    stated = [
+        f"{label}: {value}" for label, value in (
+            ("time available", f"{context.duration_minutes} minutes" if context.duration_minutes else None),
+            ("budget", context.budget_level.value if context.budget_level else None),
+            ("energy", context.energy_level.value if context.energy_level else None),
+            ("who they are with", context.social_context.value if context.social_context else None),
+            ("when", context.when),
+        ) if value
+    ]
+    if not stated:
+        return []
+    return [
+        "\nThey asked for this right now with these constraints: " + "; ".join(stated)
+        + "\nIf an activity fits those constraints well, mention it briefly."
+    ]
+
+
+def _activity_section(activity: Activity, tier: Tier, label: str = "Recommended activity") -> list[str]:
+    attributes = normalise_dimensions(activity.attributes)
+    defining = [d for d in DIMENSIONS if attributes[d] >= 0.6]
+    sections = [
+        f"\n{label}: {activity.name}",
+        f"Description: {activity.description}",
+        f"Mainly involves: {', '.join(defining) or 'nothing strongly'}",
+        f"Takes {activity.duration_min}-{activity.duration_max} minutes, cost {activity.cost_level.value}, "
+        f"difficulty {activity.difficulty}/5",
+    ]
+    if activity.related_interests:
+        sections.append(f"Adjacent to: {', '.join(activity.related_interests)}")
+    sections.append(_TIER_GUIDANCE[tier])
+    return sections
+
+
+def _prompt(profile: DiscoveryProfile, activity: Activity, tier: Tier, context: DiscoveryContext | None) -> str:
+    sections = _profile_section(profile, activity)
 
     attributes = normalise_dimensions(activity.attributes)
     defining = [d for d in DIMENSIONS if attributes[d] >= 0.6]
     sections += [
         f"\nRecommended activity: {activity.name}",
         f"Description: {activity.description}",
-        f"Categories: {', '.join(activity.categories)}",
         f"Mainly involves: {', '.join(defining) or 'nothing strongly'}",
-        f"Takes {activity.duration_min}-{activity.duration_max} minutes, cost {activity.cost_level.value}, difficulty {activity.difficulty}/5",
+        f"Takes {activity.duration_min}-{activity.duration_max} minutes, cost {activity.cost_level.value}, "
+        f"difficulty {activity.difficulty}/5",
     ]
     if activity.related_interests:
         sections.append(f"Adjacent to: {', '.join(activity.related_interests)}")
-
-    if context is not None:
-        stated = [
-            f"{label}: {value}" for label, value in (
-                ("time available", f"{context.duration_minutes} minutes" if context.duration_minutes else None),
-                ("budget", context.budget_level.value if context.budget_level else None),
-                ("energy", context.energy_level.value if context.energy_level else None),
-                ("who they are with", context.social_context.value if context.social_context else None),
-                ("when", context.when),
-            ) if value
-        ]
-        if stated:
-            sections.append(
-                "\nThey asked for this right now with these constraints: " + "; ".join(stated)
-                + "\nIf the activity fits those constraints well, mention it briefly."
-            )
-
+    sections += _context_section(context)
     sections.append(f"\n{_TIER_GUIDANCE[tier]}")
     sections.append('\nWrite the "Why this?" line.')
     return "\n".join(sections)
@@ -147,9 +174,101 @@ async def generate_explanation(
         _LOGGER.warning(f"Explanation generation fell back to a template: {exc}")
         return fallbacks.generate_explanation(profile, activity, tier)
 
-    # Models occasionally wrap the line in quotes or prefix the heading back at us.
+    return _tidy(text) or fallbacks.generate_explanation(profile, activity, tier)
+
+
+def _tidy(text: str) -> str:
+    """Strips the quoting and heading models sometimes wrap the line in."""
     text = text.strip().strip('"').strip()
     for prefix in ("Why this?", "Why this:", "Why this -"):
         if text.lower().startswith(prefix.lower()):
             text = text[len(prefix):].strip()
-    return text or fallbacks.generate_explanation(profile, activity, tier)
+    return text
+
+
+# --------------------------------------------------
+# Batched generation
+# --------------------------------------------------
+
+_BATCH_SYSTEM = _SYSTEM + """
+
+You will be given several recommendations at once. Write one line for each, and return them
+keyed by the activity id you were given. Make the lines distinct from one another: the user
+sees all three together, so three sentences with the same shape reads as a template."""
+
+
+class _BatchItem(BaseModel):
+    activity_id: str = Field(description="Copy the id exactly as given")
+    explanation: str
+
+
+class _BatchSchema(BaseModel):
+    explanations: list[_BatchItem]
+
+
+def _batch_prompt(
+    profile: DiscoveryProfile,
+    pairs: list[tuple[Activity, Tier]],
+    context: DiscoveryContext | None,
+) -> str:
+    # The profile block is rendered against the first activity only, since the "relevant
+    # here" markers differ per activity; the raw dimension values are the same either way.
+    sections = _profile_section(profile, pairs[0][0])
+    sections += _context_section(context)
+    for activity, tier in pairs:
+        sections.append(f"\n--- activity id: {activity.id} ---")
+        sections += _activity_section(activity, tier)
+    sections.append(f'\nWrite one "Why this?" line for each of the {len(pairs)} activities above.')
+    return "\n".join(sections)
+
+
+async def generate_explanations(
+    profile: DiscoveryProfile,
+    pairs: list[tuple[Activity, Tier]],
+    context: DiscoveryContext | None = None,
+) -> list[str]:
+    """Writes a "Why this?" line for several recommendations in a single model call.
+
+    One call rather than one per activity, because the free tier limits requests far more
+    tightly than tokens: at 15 requests per minute each request is entitled to roughly
+    16,000 input tokens, and a single explanation prompt uses a few hundred. Batching a
+    three-tier set turns three requests into one at no meaningful token cost.
+
+    Showing the model all three together also helps it vary them, since it can see what it
+    has already said.
+
+    :param profile: What the system understands about the user
+    :param pairs: The (activity, tier) recommendations to explain, in display order
+    :param context: Optional transient constraints
+    :return: One explanation per pair, in the same order. Never raises; any activity the
+        model omits or mangles falls back to a template.
+    """
+    if not pairs:
+        return []
+
+    provider = get_provider()
+    if provider is None:
+        return [fallbacks.generate_explanation(profile, activity, tier) for activity, tier in pairs]
+
+    try:
+        result = await provider.generate_json(
+            schema=_BatchSchema,
+            system=_BATCH_SYSTEM,
+            prompt=_batch_prompt(profile, pairs, context),
+            fast=True,
+        )
+    except ProviderError as exc:
+        _LOGGER.warning(f"Batched explanation generation fell back to templates: {exc}")
+        return [fallbacks.generate_explanation(profile, activity, tier) for activity, tier in pairs]
+
+    by_id = {item.activity_id: _tidy(item.explanation) for item in result.explanations}
+    explanations = []
+    for activity, tier in pairs:
+        text = by_id.get(activity.id)
+        if not text:
+            # The model dropped or renamed an id. Fall back for that one rather than
+            # risking an explanation attached to the wrong activity.
+            _LOGGER.warning(f"No explanation returned for activity {activity.id!r}; using a template")
+            text = fallbacks.generate_explanation(profile, activity, tier)
+        explanations.append(text)
+    return explanations

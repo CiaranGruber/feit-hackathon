@@ -320,10 +320,10 @@ SCHEMA = ConfigSchema({
     "ai": ConfigSchema({
         "provider": ConfigOption(lambda x: x in AIProvider, "gemini", True, post_validator_func=lambda x: AIProvider(x)),
         "api_key": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, None, True),
-        "model": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, "gemini-3.8-flash", True),
+        "model": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, "gemini-3.5-flash-lite", True),
         "fast_model": ConfigOption(lambda x: isinstance(x, str) and len(x) > 0, "gemini-3.5-flash-lite", True),
         "timeout_seconds": ConfigOption(lambda x: isinstance(x, int) and 0 < x <= 120, 20, True),
-        "max_retries": ConfigOption(lambda x: isinstance(x, int) and 0 <= x <= 5, 2, True),
+        "max_retries": ConfigOption(lambda x: isinstance(x, int) and 0 <= x <= 5, 0, True),
     }, lambda x: AIConfig(**x))
 }, lambda x: Config(**x))
 

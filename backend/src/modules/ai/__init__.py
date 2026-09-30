@@ -24,7 +24,7 @@ Import from this module rather than reaching into submodules.
 
 from src.modules.ai.companion import companion_reply
 from src.modules.ai.context_extractor import extract_context
-from src.modules.ai.explanation_generator import generate_explanation
+from src.modules.ai.explanation_generator import generate_explanation, generate_explanations
 from src.modules.ai.profile_generator import generate_profile
 from src.modules.ai.provider import ProviderError, fallback_reason, get_provider, reset_provider
 from src.modules.ai.reflection_analyser import analyse_reflection
@@ -59,6 +59,7 @@ __all__ = [
     "generate_profile",
     "extract_context",
     "generate_explanation",
+    "generate_explanations",
     "analyse_reflection",
     "companion_reply",
     # Vocabulary

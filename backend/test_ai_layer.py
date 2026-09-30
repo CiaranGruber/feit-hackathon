@@ -22,6 +22,8 @@ from src.modules.ai import (profile_generator as pg, context_extractor as ce,
                             explanation_generator as eg, reflection_analyser as ra,
                             companion as co)
 
+# generate_explanations resolves the provider through its own module reference.
+
 class FakeProvider:
     """Returns canned, schema-valid replies exactly as the real model would."""
     def __init__(self, payloads): self.payloads = payloads; self.calls = []
@@ -101,6 +103,30 @@ async def main():
     assert rep.context is not None, "companion must attach extracted context"
     assert rep.follow_up_question is None, "follow_up only when action is ask_follow_up"
     print(f"companion   OK  action={rep.action.value} context_attached={rep.context is not None} follow_up={rep.follow_up_question}")
+
+    # Batched explanations: one call for the whole set, mapped back by activity id.
+    batch_payload = {"_BatchSchema": {"explanations": [
+        {"activity_id": "b", "explanation": "second line"},
+        {"activity_id": "a", "explanation": '"first line"'},
+    ]}}
+    batch = FakeProvider(batch_payload); patch_all(batch)
+    act_b = T.Activity(id="b", name="Other", description="d", categories=["social"],
+        attributes={"social": 0.8}, duration_min=30, duration_max=60,
+        cost_level=T.BudgetLevel.FREE, difficulty=1, related_interests=[])
+    act_a = T.Activity(id="a", name="First", description="d", categories=["creative"],
+        attributes={"creative": 0.8}, duration_min=30, duration_max=60,
+        cost_level=T.BudgetLevel.FREE, difficulty=1, related_interests=[])
+    lines = await eg.generate_explanations(p, [(act_a, T.Tier.FAMILIAR), (act_b, T.Tier.EXPLORE)])
+    assert lines == ["first line", "second line"], f"out-of-order reply not remapped: {lines}"
+    assert len(batch.calls) == 1, f"batch should be one call, made {len(batch.calls)}"
+    print(f"batch       OK  2 explanations in {len(batch.calls)} call, remapped by id, quotes stripped")
+
+    # An id the model omits falls back for that activity only.
+    partial = FakeProvider({"_BatchSchema": {"explanations": [
+        {"activity_id": "a", "explanation": "only a"}]}}); patch_all(partial)
+    lines = await eg.generate_explanations(p, [(act_a, T.Tier.FAMILIAR), (act_b, T.Tier.EXPLORE)])
+    assert len(lines) == 2 and lines[0] == "only a" and lines[1], "missing id not backfilled"
+    print(f"batch gaps  OK  omitted id fell back to a template, other line preserved")
 
     print(f"\nmodel calls: {fake.calls}")
     fast = [c for c in fake.calls if c[1]]

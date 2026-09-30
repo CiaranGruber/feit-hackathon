@@ -459,12 +459,14 @@ async def explain(
     Separate from ``recommend`` so selection stays synchronous and testable, and so callers
     that do not need prose can skip the model calls entirely.
 
+    Uses a single batched model call for the whole set rather than one per recommendation.
+
     :return: The same recommendations with ``explanation`` populated
     """
-    from src.modules.ai import generate_explanation
+    from src.modules.ai import generate_explanations
 
-    explained = []
-    for recommendation in recommendations:
-        text = await generate_explanation(profile, recommendation.activity, recommendation.tier, context)
-        explained.append(replace(recommendation, explanation=text))
-    return explained
+    if not recommendations:
+        return []
+    pairs = [(r.activity, r.tier) for r in recommendations]
+    texts = await generate_explanations(profile, pairs, context)
+    return [replace(r, explanation=text) for r, text in zip(recommendations, texts)]
