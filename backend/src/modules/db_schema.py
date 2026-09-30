@@ -49,7 +49,7 @@ class User(Base):
 
 
 class Tag(Base):
-    """A label that can be attached to tasks."""
+    """A label that can be attached to tasks and users."""
 
     __tablename__ = "TAGS"
 
@@ -153,6 +153,30 @@ class TaskTagRelationship(Base):
     value: Mapped[float] = mapped_column(Float, nullable=False)
 
 
+class UserTagRelationship(Base):
+    """Strength of association between a user and a tag (0–1)."""
+
+    __tablename__ = "USER_TAG_RELATIONSHIPS"
+    __table_args__ = (
+        CheckConstraint(
+            "value >= 0 AND value <= 1",
+            name="ck_user_tag_relationship_value_range",
+        ),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(ID_LENGTH),
+        ForeignKey("USERS.id"),
+        primary_key=True,
+    )
+    tag_id: Mapped[str] = mapped_column(
+        String(ID_LENGTH),
+        ForeignKey("TAGS.id"),
+        primary_key=True,
+    )
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+
+
 class UserTaskCompletion(Base):
     """A user's completion of a task, including feedback ratings."""
 
@@ -192,9 +216,12 @@ class UserTaskCompletion(Base):
 class UserProfile(Base):
     """A user's evolving Discovery Profile (FR2).
 
-    The flexible parts are JSON rather than columns or join tables: the dimension map is
-    read and written whole, never queried by key, and the product document explicitly
-    sanctions JSON for profile data.
+    Holds the parts of a profile that are not per-tag values: interests, the areas not yet
+    explored, the user-facing summary and a monotonic version. The dimension values
+    themselves live in USER_TAG_RELATIONSHIPS.
+
+    The list fields are JSON because they are read and written whole and never queried by
+    element, and the product document explicitly sanctions JSON for profile data.
     """
 
     __tablename__ = "USER_PROFILES"
@@ -207,8 +234,9 @@ class UserProfile(Base):
         ForeignKey("USERS.id"),
         primary_key=True,
     )
-    dimensions: Mapped[dict] = mapped_column(JSON, nullable=False)
-    """The seven preference dimensions, name to value in [0.0, 1.0]."""
+    # The seven dimension values live in USER_TAG_RELATIONSHIPS, not here. That table is the
+    # single source of truth for them, so the engine and get_user_stats() cannot disagree.
+    # This row holds what that table has no place for.
     stated_interests: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     """What the user said they enjoy, from onboarding."""
     emerging_interests: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

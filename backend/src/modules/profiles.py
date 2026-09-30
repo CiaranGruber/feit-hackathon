@@ -14,7 +14,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from src.app import app
@@ -29,7 +29,14 @@ from src.modules.ai.types import (
     normalise_dimensions,
     nudge,
 )
-from src.modules.db_schema import ProfileSignal, User, UserProfile, UserTaskCompletion
+from src.modules.db_schema import (
+    ProfileSignal,
+    Tag,
+    User,
+    UserProfile,
+    UserTagRelationship,
+    UserTaskCompletion,
+)
 from src.modules.discovery import DiscoveryHistory
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,14 +57,21 @@ to unfamiliar things in general, rather than only more inclined toward that one 
 def load_profile(user_id: str) -> DiscoveryProfile | None:
     """Loads a user's stored profile.
 
+    Dimension values come from USER_TAG_RELATIONSHIPS and the rest from USER_PROFILES.
+
     :return: The profile, or None if the user has not completed onboarding
     """
     with Session(app().db_engine) as session:
         row = session.get(UserProfile, user_id)
         if row is None:
             return None
+        values = dict(session.execute(
+            select(Tag.name, UserTagRelationship.value)
+            .join(Tag, Tag.id == UserTagRelationship.tag_id)
+            .where(UserTagRelationship.user_id == user_id)
+        ).all())
         return DiscoveryProfile(
-            dimensions=normalise_dimensions(row.dimensions),
+            dimensions=normalise_dimensions(values),
             stated_interests=list(row.stated_interests),
             emerging_interests=list(row.emerging_interests),
             underexplored=list(row.underexplored),
@@ -70,20 +84,34 @@ def load_profile(user_id: str) -> DiscoveryProfile | None:
 def save_profile(user_id: str, profile: DiscoveryProfile) -> int:
     """Stores a profile, creating it or replacing the stored one.
 
+    Dimension values are written to USER_TAG_RELATIONSHIPS so that the engine and the API's
+    get_user_stats() read the same numbers. Everything else goes to USER_PROFILES.
+
     :return: The profile's new version number
-    :raises KeyError: If the user does not exist
+    :raises KeyError: If the user does not exist, or a dimension has no matching tag
     """
     with Session(app().db_engine) as session:
         if session.get(User, user_id) is None:
             raise KeyError(f"User '{user_id}' not found.")
 
+        tag_ids = dict(session.execute(select(Tag.name, Tag.id)).all())
+        missing = [d for d in DIMENSIONS if d not in tag_ids]
+        if missing:
+            raise KeyError(
+                f"No TAGS row for dimension(s) {missing}. Run 'python scripts/setup_db.py' to seed them."
+            )
+        session.execute(delete(UserTagRelationship).where(UserTagRelationship.user_id == user_id))
+        for name in DIMENSIONS:
+            session.add(UserTagRelationship(
+                user_id=user_id, tag_id=tag_ids[name], value=profile.dimensions[name],
+            ))
+
         row = session.get(UserProfile, user_id)
         version = 1 if row is None else row.version + 1
         if row is None:
-            row = UserProfile(user_id=user_id, dimensions={}, updated_at=datetime.now())
+            row = UserProfile(user_id=user_id, updated_at=datetime.now())
             session.add(row)
 
-        row.dimensions = dict(profile.dimensions)
         row.stated_interests = list(profile.stated_interests)
         row.emerging_interests = list(profile.emerging_interests)
         row.underexplored = list(profile.underexplored)

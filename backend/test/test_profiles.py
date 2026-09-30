@@ -17,7 +17,7 @@ from src.modules.ai.types import (
     empty_dimensions,
     normalise_dimensions,
 )
-from src.modules.db_schema import User
+from src.modules.db_schema import Tag, User
 from src.modules.profiles import (
     apply_signals,
     get_profile_version,
@@ -31,8 +31,14 @@ USER_A = "11111111-1111-1111-1111-111111111111"
 
 
 def _seed_user():
+    """Seeds the user and the seven dimension tags.
+
+    save_profile writes dimension values to USER_TAG_RELATIONSHIPS, so the tags must exist.
+    """
     with Session(app().db_engine) as session:
         session.add(User(id=USER_A, first_name="Alice"))
+        for index, name in enumerate(DIMENSIONS):
+            session.add(Tag(id=f"tag-{index}", name=name, icon_name="icon"))
         session.commit()
 
 
@@ -74,6 +80,7 @@ def test_profile_round_trips_and_versions_increment(app_db):
 
 
 def test_save_profile_rejects_unknown_user(app_db):
+    _seed_user()
     with pytest.raises(KeyError):
         save_profile("nobody", _profile())
 

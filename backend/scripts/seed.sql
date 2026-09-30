@@ -3,16 +3,19 @@
 -- Statements are ordered to respect foreign keys; re-running clears existing rows first.
 --
 -- TAGS are the seven preference dimensions the Discovery Engine scores against.
--- TASK_TAG_RELATIONSHIPS holds each task's value per dimension, where 0.5 means the task
--- is indifferent, 1.0 means strongly this, and 0.0 means strongly the opposite. These are
--- authored per task rather than derived from tag position, because the engine compares
--- them directly against a user's profile and position carries no meaning about strength.
+-- TASK_TAG_RELATIONSHIPS holds each task's value per dimension, and
+-- USER_TAG_RELATIONSHIPS holds each user's. 0.5 means indifferent, 1.0 strongly this,
+-- 0.0 strongly the opposite. Both are authored rather than derived from tag position,
+-- because the engine compares user values against task values directly.
 --
 -- TASK_TAGS lists only the dimensions a task is genuinely about (value >= 0.6), ordered so
 -- that the highest position is the strongest. The engine uses these for recommendation
--- diversity, so that two suggestions in one set are not about the same things.
+-- diversity, so two suggestions in one set are not about the same things.
 
+DELETE FROM "PROFILE_SIGNALS";
+DELETE FROM "USER_PROFILES";
 DELETE FROM "USER_TASK_COMPLETIONS";
+DELETE FROM "USER_TAG_RELATIONSHIPS";
 DELETE FROM "TASK_TAG_RELATIONSHIPS";
 DELETE FROM "TASK_TAGS";
 DELETE FROM "TASKS";
@@ -71,18 +74,6 @@ INSERT INTO "TASKS" ("id", "name", "short_description", "generation_instructions
 
 -- Task tags: dimensions each task is genuinely about, weakest first
 INSERT INTO "TASK_TAGS" ("task_id", "tag_id", "position") VALUES
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', 0),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '55555555-5555-5555-5555-555555555555', 0),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '66666666-6666-6666-6666-666666666666', 1),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '33333333-3333-3333-3333-333333333333', 0),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 1),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111', 0),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '55555555-5555-5555-5555-555555555555', 0),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '22222222-2222-2222-2222-222222222222', 0),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '55555555-5555-5555-5555-555555555555', 1),
-    ('12121212-1212-1212-1212-121212121212', '22222222-2222-2222-2222-222222222222', 0),
-    ('34343434-3434-3434-3434-343434343434', '77777777-7777-7777-7777-777777777777', 0),
-    ('34343434-3434-3434-3434-343434343434', '22222222-2222-2222-2222-222222222222', 1),
     ('10000001-0000-4000-8000-000000000001', '77777777-7777-7777-7777-777777777777', 0),
     ('10000001-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111111111', 1),
     ('10000001-0000-4000-8000-000000000001', '33333333-3333-3333-3333-333333333333', 2),
@@ -131,80 +122,22 @@ INSERT INTO "TASK_TAGS" ("task_id", "tag_id", "position") VALUES
     ('10000019-0000-4000-8000-000000000019', '55555555-5555-5555-5555-555555555555', 1),
     ('10000020-0000-4000-8000-000000000020', '44444444-4444-4444-4444-444444444444', 0),
     ('10000020-0000-4000-8000-000000000020', '66666666-6666-6666-6666-666666666666', 1),
-    ('10000020-0000-4000-8000-000000000020', '77777777-7777-7777-7777-777777777777', 2);
+    ('10000020-0000-4000-8000-000000000020', '77777777-7777-7777-7777-777777777777', 2),
+    ('12121212-1212-1212-1212-121212121212', '22222222-2222-2222-2222-222222222222', 0),
+    ('34343434-3434-3434-3434-343434343434', '77777777-7777-7777-7777-777777777777', 0),
+    ('34343434-3434-3434-3434-343434343434', '22222222-2222-2222-2222-222222222222', 1),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', 0),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '55555555-5555-5555-5555-555555555555', 0),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '66666666-6666-6666-6666-666666666666', 1),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '33333333-3333-3333-3333-333333333333', 0),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 1),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111', 0),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '55555555-5555-5555-5555-555555555555', 0),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '22222222-2222-2222-2222-222222222222', 0),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '55555555-5555-5555-5555-555555555555', 1);
 
 -- Task-tag relationship strengths: every task x every dimension
 INSERT INTO "TASK_TAG_RELATIONSHIPS" ("task_id", "tag_id", "value") VALUES
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 0.35),
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 0.15),
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 0.05),
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444', 0.45),
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '55555555-5555-5555-5555-555555555555', 0.20),
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', 0.95),
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '77777777-7777-7777-7777-777777777777', 0.25),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '11111111-1111-1111-1111-111111111111', 0.30),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 0.15),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', 0.40),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '44444444-4444-4444-4444-444444444444', 0.25),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '55555555-5555-5555-5555-555555555555', 0.80),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '66666666-6666-6666-6666-666666666666', 0.90),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '77777777-7777-7777-7777-777777777777', 0.30),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 0.90),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222', 0.25),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '33333333-3333-3333-3333-333333333333', 0.60),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '44444444-4444-4444-4444-444444444444', 0.10),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '55555555-5555-5555-5555-555555555555', 0.10),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '66666666-6666-6666-6666-666666666666', 0.45),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '77777777-7777-7777-7777-777777777777', 0.40),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111', 0.70),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '22222222-2222-2222-2222-222222222222', 0.40),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '33333333-3333-3333-3333-333333333333', 0.10),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '44444444-4444-4444-4444-444444444444', 0.05),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '55555555-5555-5555-5555-555555555555', 0.15),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '66666666-6666-6666-6666-666666666666', 0.05),
-    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '77777777-7777-7777-7777-777777777777', 0.30),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '11111111-1111-1111-1111-111111111111', 0.10),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '22222222-2222-2222-2222-222222222222', 0.15),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '33333333-3333-3333-3333-333333333333', 0.05),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '44444444-4444-4444-4444-444444444444', 0.15),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '55555555-5555-5555-5555-555555555555', 0.95),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '66666666-6666-6666-6666-666666666666', 0.30),
-    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '77777777-7777-7777-7777-777777777777', 0.20),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '11111111-1111-1111-1111-111111111111', 0.25),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '22222222-2222-2222-2222-222222222222', 0.75),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '33333333-3333-3333-3333-333333333333', 0.25),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '44444444-4444-4444-4444-444444444444', 0.10),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '55555555-5555-5555-5555-555555555555', 0.90),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '66666666-6666-6666-6666-666666666666', 0.05),
-    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '77777777-7777-7777-7777-777777777777', 0.35),
-    ('abcabcab-abab-abab-abab-abcabcabcabc', '11111111-1111-1111-1111-111111111111', 0.05),
-    ('abcabcab-abab-abab-abab-abcabcabcabc', '22222222-2222-2222-2222-222222222222', 0.15),
-    ('abcabcab-abab-abab-abab-abcabcabcabc', '33333333-3333-3333-3333-333333333333', 0.15),
-    ('abcabcab-abab-abab-abab-abcabcabcabc', '44444444-4444-4444-4444-444444444444', 0.55),
-    ('abcabcab-abab-abab-abab-abcabcabcabc', '55555555-5555-5555-5555-555555555555', 0.05),
-    ('abcabcab-abab-abab-abab-abcabcabcabc', '66666666-6666-6666-6666-666666666666', 0.10),
-    ('abcabcab-abab-abab-abab-abcabcabcabc', '77777777-7777-7777-7777-777777777777', 0.20),
-    ('defdefde-fdef-defd-efde-fdefdefdefde', '11111111-1111-1111-1111-111111111111', 0.05),
-    ('defdefde-fdef-defd-efde-fdefdefdefde', '22222222-2222-2222-2222-222222222222', 0.20),
-    ('defdefde-fdef-defd-efde-fdefdefdefde', '33333333-3333-3333-3333-333333333333', 0.05),
-    ('defdefde-fdef-defd-efde-fdefdefdefde', '44444444-4444-4444-4444-444444444444', 0.20),
-    ('defdefde-fdef-defd-efde-fdefdefdefde', '55555555-5555-5555-5555-555555555555', 0.05),
-    ('defdefde-fdef-defd-efde-fdefdefdefde', '66666666-6666-6666-6666-666666666666', 0.15),
-    ('defdefde-fdef-defd-efde-fdefdefdefde', '77777777-7777-7777-7777-777777777777', 0.25),
-    ('12121212-1212-1212-1212-121212121212', '11111111-1111-1111-1111-111111111111', 0.20),
-    ('12121212-1212-1212-1212-121212121212', '22222222-2222-2222-2222-222222222222', 0.80),
-    ('12121212-1212-1212-1212-121212121212', '33333333-3333-3333-3333-333333333333', 0.05),
-    ('12121212-1212-1212-1212-121212121212', '44444444-4444-4444-4444-444444444444', 0.05),
-    ('12121212-1212-1212-1212-121212121212', '55555555-5555-5555-5555-555555555555', 0.15),
-    ('12121212-1212-1212-1212-121212121212', '66666666-6666-6666-6666-666666666666', 0.05),
-    ('12121212-1212-1212-1212-121212121212', '77777777-7777-7777-7777-777777777777', 0.55),
-    ('34343434-3434-3434-3434-343434343434', '11111111-1111-1111-1111-111111111111', 0.20),
-    ('34343434-3434-3434-3434-343434343434', '22222222-2222-2222-2222-222222222222', 0.75),
-    ('34343434-3434-3434-3434-343434343434', '33333333-3333-3333-3333-333333333333', 0.10),
-    ('34343434-3434-3434-3434-343434343434', '44444444-4444-4444-4444-444444444444', 0.05),
-    ('34343434-3434-3434-3434-343434343434', '55555555-5555-5555-5555-555555555555', 0.20),
-    ('34343434-3434-3434-3434-343434343434', '66666666-6666-6666-6666-666666666666', 0.05),
-    ('34343434-3434-3434-3434-343434343434', '77777777-7777-7777-7777-777777777777', 0.60),
     ('10000001-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111111111', 0.80),
     ('10000001-0000-4000-8000-000000000001', '22222222-2222-2222-2222-222222222222', 0.20),
     ('10000001-0000-4000-8000-000000000001', '33333333-3333-3333-3333-333333333333', 0.95),
@@ -344,4 +277,125 @@ INSERT INTO "TASK_TAG_RELATIONSHIPS" ("task_id", "tag_id", "value") VALUES
     ('10000020-0000-4000-8000-000000000020', '44444444-4444-4444-4444-444444444444', 0.85),
     ('10000020-0000-4000-8000-000000000020', '55555555-5555-5555-5555-555555555555', 0.25),
     ('10000020-0000-4000-8000-000000000020', '66666666-6666-6666-6666-666666666666', 0.90),
-    ('10000020-0000-4000-8000-000000000020', '77777777-7777-7777-7777-777777777777', 0.90);
+    ('10000020-0000-4000-8000-000000000020', '77777777-7777-7777-7777-777777777777', 0.90),
+    ('12121212-1212-1212-1212-121212121212', '11111111-1111-1111-1111-111111111111', 0.20),
+    ('12121212-1212-1212-1212-121212121212', '22222222-2222-2222-2222-222222222222', 0.80),
+    ('12121212-1212-1212-1212-121212121212', '33333333-3333-3333-3333-333333333333', 0.05),
+    ('12121212-1212-1212-1212-121212121212', '44444444-4444-4444-4444-444444444444', 0.05),
+    ('12121212-1212-1212-1212-121212121212', '55555555-5555-5555-5555-555555555555', 0.15),
+    ('12121212-1212-1212-1212-121212121212', '66666666-6666-6666-6666-666666666666', 0.05),
+    ('12121212-1212-1212-1212-121212121212', '77777777-7777-7777-7777-777777777777', 0.55),
+    ('34343434-3434-3434-3434-343434343434', '11111111-1111-1111-1111-111111111111', 0.20),
+    ('34343434-3434-3434-3434-343434343434', '22222222-2222-2222-2222-222222222222', 0.75),
+    ('34343434-3434-3434-3434-343434343434', '33333333-3333-3333-3333-333333333333', 0.10),
+    ('34343434-3434-3434-3434-343434343434', '44444444-4444-4444-4444-444444444444', 0.05),
+    ('34343434-3434-3434-3434-343434343434', '55555555-5555-5555-5555-555555555555', 0.20),
+    ('34343434-3434-3434-3434-343434343434', '66666666-6666-6666-6666-666666666666', 0.05),
+    ('34343434-3434-3434-3434-343434343434', '77777777-7777-7777-7777-777777777777', 0.60),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 0.35),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 0.15),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 0.05),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444', 0.45),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '55555555-5555-5555-5555-555555555555', 0.20),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', 0.95),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '77777777-7777-7777-7777-777777777777', 0.25),
+    ('abcabcab-abab-abab-abab-abcabcabcabc', '11111111-1111-1111-1111-111111111111', 0.05),
+    ('abcabcab-abab-abab-abab-abcabcabcabc', '22222222-2222-2222-2222-222222222222', 0.15),
+    ('abcabcab-abab-abab-abab-abcabcabcabc', '33333333-3333-3333-3333-333333333333', 0.15),
+    ('abcabcab-abab-abab-abab-abcabcabcabc', '44444444-4444-4444-4444-444444444444', 0.55),
+    ('abcabcab-abab-abab-abab-abcabcabcabc', '55555555-5555-5555-5555-555555555555', 0.05),
+    ('abcabcab-abab-abab-abab-abcabcabcabc', '66666666-6666-6666-6666-666666666666', 0.10),
+    ('abcabcab-abab-abab-abab-abcabcabcabc', '77777777-7777-7777-7777-777777777777', 0.20),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '11111111-1111-1111-1111-111111111111', 0.30),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 0.15),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-3333-3333-3333-333333333333', 0.40),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '44444444-4444-4444-4444-444444444444', 0.25),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '55555555-5555-5555-5555-555555555555', 0.80),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '66666666-6666-6666-6666-666666666666', 0.90),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '77777777-7777-7777-7777-777777777777', 0.30),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 0.90),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222', 0.25),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '33333333-3333-3333-3333-333333333333', 0.60),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '44444444-4444-4444-4444-444444444444', 0.10),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '55555555-5555-5555-5555-555555555555', 0.10),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '66666666-6666-6666-6666-666666666666', 0.45),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', '77777777-7777-7777-7777-777777777777', 0.40),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111', 0.70),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '22222222-2222-2222-2222-222222222222', 0.40),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '33333333-3333-3333-3333-333333333333', 0.10),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '44444444-4444-4444-4444-444444444444', 0.05),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '55555555-5555-5555-5555-555555555555', 0.15),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '66666666-6666-6666-6666-666666666666', 0.05),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', '77777777-7777-7777-7777-777777777777', 0.30),
+    ('defdefde-fdef-defd-efde-fdefdefdefde', '11111111-1111-1111-1111-111111111111', 0.05),
+    ('defdefde-fdef-defd-efde-fdefdefdefde', '22222222-2222-2222-2222-222222222222', 0.20),
+    ('defdefde-fdef-defd-efde-fdefdefdefde', '33333333-3333-3333-3333-333333333333', 0.05),
+    ('defdefde-fdef-defd-efde-fdefdefdefde', '44444444-4444-4444-4444-444444444444', 0.20),
+    ('defdefde-fdef-defd-efde-fdefdefdefde', '55555555-5555-5555-5555-555555555555', 0.05),
+    ('defdefde-fdef-defd-efde-fdefdefdefde', '66666666-6666-6666-6666-666666666666', 0.15),
+    ('defdefde-fdef-defd-efde-fdefdefdefde', '77777777-7777-7777-7777-777777777777', 0.25),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '11111111-1111-1111-1111-111111111111', 0.10),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '22222222-2222-2222-2222-222222222222', 0.15),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '33333333-3333-3333-3333-333333333333', 0.05),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '44444444-4444-4444-4444-444444444444', 0.15),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '55555555-5555-5555-5555-555555555555', 0.95),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '66666666-6666-6666-6666-666666666666', 0.30),
+    ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '77777777-7777-7777-7777-777777777777', 0.20),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '11111111-1111-1111-1111-111111111111', 0.25),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '22222222-2222-2222-2222-222222222222', 0.75),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '33333333-3333-3333-3333-333333333333', 0.25),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '44444444-4444-4444-4444-444444444444', 0.10),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '55555555-5555-5555-5555-555555555555', 0.90),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '66666666-6666-6666-6666-666666666666', 0.05),
+    ('ffffffff-ffff-ffff-ffff-ffffffffffff', '77777777-7777-7777-7777-777777777777', 0.35);
+
+-- User-tag relationship strengths: every user x every dimension.
+-- This is the stored half of a Discovery Profile; profiles.py reads and writes it.
+INSERT INTO "USER_TAG_RELATIONSHIPS" ("user_id", "tag_id", "value") VALUES
+    -- Alice: outdoor and active, prefers her own company
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', '11111111-1111-1111-1111-111111111111', 0.35),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', '22222222-2222-2222-2222-222222222222', 0.30),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', '33333333-3333-3333-3333-333333333333', 0.25),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', '44444444-4444-4444-4444-444444444444', 0.60),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', '55555555-5555-5555-5555-555555555555', 0.15),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', '66666666-6666-6666-6666-666666666666', 0.90),
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', '77777777-7777-7777-7777-777777777777', 0.55),
+    -- Bob: creative and analytical, learns by making
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901', '11111111-1111-1111-1111-111111111111', 0.90),
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901', '22222222-2222-2222-2222-222222222222', 0.70),
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901', '33333333-3333-3333-3333-333333333333', 0.55),
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901', '44444444-4444-4444-4444-444444444444', 0.20),
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901', '55555555-5555-5555-5555-555555555555', 0.15),
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901', '66666666-6666-6666-6666-666666666666', 0.30),
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901', '77777777-7777-7777-7777-777777777777', 0.60),
+    -- Charlie: sociable, drawn to wellbeing and short activities
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012', '11111111-1111-1111-1111-111111111111', 0.25),
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012', '22222222-2222-2222-2222-222222222222', 0.35),
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012', '33333333-3333-3333-3333-333333333333', 0.30),
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012', '44444444-4444-4444-4444-444444444444', 0.55),
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012', '55555555-5555-5555-5555-555555555555', 0.85),
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012', '66666666-6666-6666-6666-666666666666', 0.40),
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012', '77777777-7777-7777-7777-777777777777', 0.45);
+
+-- User profiles: the non-dimension half of a Discovery Profile.
+-- The dimension values themselves are in USER_TAG_RELATIONSHIPS above.
+INSERT INTO "USER_PROFILES" ("user_id", "stated_interests", "emerging_interests", "underexplored",
+                             "typical_duration_minutes", "budget_level", "summary", "version",
+                             "updated_at") VALUES
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+     '["walking", "nature", "photography"]', '[]', '["creative", "hands_on", "social"]',
+     120, 'low', 'Outdoor - Independent - Active - Moderately adventurous', 1, '2026-09-28 18:00:00'),
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901',
+     '["drawing", "reading", "music"]', '[]', '["physical", "social", "outdoor"]',
+     90, 'low', 'Creative - Analytical - Independent - Moderately adventurous', 1, '2026-09-29 11:00:00'),
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012',
+     '["coffee", "friends", "wellbeing"]', '[]', '["creative", "analytical", "outdoor"]',
+     60, 'low', 'Social - Relaxed - Prefers the familiar', 1, '2026-09-29 07:30:00');
+
+-- Sample completions
+INSERT INTO "USER_TASK_COMPLETIONS" ("user_id", "task_id", "completion_time", "comment",
+                                     "tips", "activity_rating", "recommendation_rating",
+                                     "would_repeat", "perceived_difficulty") VALUES
+    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '2026-09-28 18:30:00', 'Lovely evening walk along the river.', 'Bring a light jumper; it cools down quickly after sunset.', 5, 5, 1, 2),
+    ('b2c3d4e5-f6a7-8901-bcde-f12345678901', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '2026-09-29 11:15:00', 'Sketched my coffee mug. Surprisingly calming.', 'Start with outlines only so it does not feel intimidating.', 4, 4, 1, 2),
+    ('c3d4e5f6-a7b8-9012-cdef-123456789012', 'abcabcab-abab-abab-abab-abcabcabcabc', '2026-09-29 07:45:00', 'Quick stretch before work helped a lot.', NULL, 5, NULL, 1, 1);
