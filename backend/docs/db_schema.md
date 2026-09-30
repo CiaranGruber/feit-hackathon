@@ -8,6 +8,8 @@ erDiagram
     TAGS ||--o{ TASK_TAGS : applied_as
     TASKS ||--|{ TASK_TAG_RELATIONSHIPS : related_to
     TAGS ||--|{ TASK_TAG_RELATIONSHIPS : scored_on
+    USERS ||--|{ USER_TAG_RELATIONSHIPS : related_to
+    TAGS ||--|{ USER_TAG_RELATIONSHIPS : scored_on
     USERS ||--o{ USER_TASK_COMPLETIONS : completes
     TASKS ||--o{ USER_TASK_COMPLETIONS : completed_in
     USERS {
@@ -33,6 +35,11 @@ erDiagram
     }
     TASK_TAG_RELATIONSHIPS {
         string task_id PK,FK "36 characters, not null"
+        string tag_id PK,FK "36 characters, not null"
+        float value "not null, 0-1"
+    }
+    USER_TAG_RELATIONSHIPS {
+        string user_id PK,FK "36 characters, not null"
         string tag_id PK,FK "36 characters, not null"
         float value "not null, 0-1"
     }

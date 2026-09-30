@@ -47,7 +47,7 @@ class User(Base):
 
 
 class Tag(Base):
-    """A label that can be attached to tasks."""
+    """A label that can be attached to tasks and users."""
 
     __tablename__ = "TAGS"
 
@@ -104,6 +104,30 @@ class TaskTagRelationship(Base):
     task_id: Mapped[str] = mapped_column(
         String(ID_LENGTH),
         ForeignKey("TASKS.id"),
+        primary_key=True,
+    )
+    tag_id: Mapped[str] = mapped_column(
+        String(ID_LENGTH),
+        ForeignKey("TAGS.id"),
+        primary_key=True,
+    )
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class UserTagRelationship(Base):
+    """Strength of association between a user and a tag (0–1)."""
+
+    __tablename__ = "USER_TAG_RELATIONSHIPS"
+    __table_args__ = (
+        CheckConstraint(
+            "value >= 0 AND value <= 1",
+            name="ck_user_tag_relationship_value_range",
+        ),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(ID_LENGTH),
+        ForeignKey("USERS.id"),
         primary_key=True,
     )
     tag_id: Mapped[str] = mapped_column(
