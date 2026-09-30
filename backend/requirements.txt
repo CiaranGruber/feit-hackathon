@@ -4,3 +4,4 @@ uvicorn
 starlette
 pydantic
 pytest
+google-genai
