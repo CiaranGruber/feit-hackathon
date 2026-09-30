@@ -6,12 +6,14 @@ All user-related API interactions are defined in this file
 import logging
 from dataclasses import dataclass
 
-from sqlalchemy import select, text
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from src.app import app
-from src.modules.db_schema import User
+from src.modules.db_schema import Tag, User, UserTagRelationship
 
 _LOGGER = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class UserData:
@@ -31,3 +33,23 @@ def get_user(user_id: str) -> UserData:
             raise KeyError(f"User '{user_id}' not found.")
         # Return user
         return UserData(result.id, result.first_name)
+
+
+def get_user_stats(user_id: str) -> dict[str, float]:
+    """
+    Return tag relationship strengths for a user.
+
+    :param user_id: The user's id.
+    :return: Mapping of tag name to relationship value (0–1).
+    :raises KeyError: If the user does not exist.
+    """
+    stmt = (
+        select(Tag.name, UserTagRelationship.value)
+        .join(Tag, Tag.id == UserTagRelationship.tag_id)
+        .where(UserTagRelationship.user_id == user_id)
+    )
+
+    with Session(app().db_engine) as session:
+        if session.get(User, user_id) is None:
+            raise KeyError(f"User '{user_id}' not found.")
+        return {row.name: row.value for row in session.execute(stmt)}
