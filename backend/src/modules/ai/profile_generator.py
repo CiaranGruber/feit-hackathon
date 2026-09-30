@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from src.modules.ai import fallbacks
 from src.modules.ai.provider import ProviderError, get_provider
 from src.modules.ai.types import (
+    CATEGORIES,
     DiscoveryProfile,
     QuestionnaireResponse,
     normalise_dimensions,
@@ -48,8 +49,12 @@ listing both artistic and logical interests should score high on BOTH.
 2. hands_on has no slider. Infer it entirely from stated interests.
 3. Use the full range. Avoid clustering everything near 0.5 - a profile that says nothing \
 produces recommendations that say nothing.
-4. underexplored lists 3-5 broad activity areas the user's answers do NOT cover. This drives \
-exploration later, so do not list things they already do.
+4. underexplored MUST be 3-5 values chosen verbatim from this exact list, and nothing else:
+craft, creative, food, games, learning, music, nature, outdoor, performance, physical, social, wellbeing
+Pick the ones the user's answers do NOT cover. Do not invent your own wording, do not add
+descriptive detail, and do not list areas they already engage with. These strings are matched
+exactly against the activity catalogue, so "high-exertion physical sports" is useless where
+"physical" is correct.
 5. summary is one short user-facing line of 3-5 traits separated by " • ", \
 e.g. "Creative • Independent • Relaxed • Moderately adventurous". Describe their discovery \
 style, not their hobbies."""
@@ -66,7 +71,7 @@ class _ProfileSchema(BaseModel):
     outdoor: float = Field(ge=0.0, le=1.0)
     novelty_tolerance: float = Field(ge=0.0, le=1.0)
     normalised_interests: list[str]
-    underexplored: list[str]
+    underexplored: list[str] = Field(description=f"3-5 values from: {', '.join(CATEGORIES)}")
     summary: str
 
 
@@ -120,7 +125,9 @@ async def generate_profile(response: QuestionnaireResponse) -> DiscoveryProfile:
         dimensions=dimensions,
         stated_interests=result.normalised_interests or [i.strip() for i in response.interests if i.strip()],
         emerging_interests=[],
-        underexplored=result.underexplored,
+        # Filtered as well as prompted: an off-vocabulary value would not fail, it would
+        # quietly stop the engine's underexplored novelty boost from ever firing.
+        underexplored=[c for c in (v.lower().strip() for v in result.underexplored) if c in CATEGORIES],
         typical_duration_minutes=response.time_availability_minutes,
         budget_level=response.budget,
         summary=result.summary or fallbacks.describe_profile(dimensions),

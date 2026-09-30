@@ -16,7 +16,7 @@ import json
 import logging
 from pathlib import Path
 
-from src.modules.ai.types import Activity, BudgetLevel, normalise_dimensions
+from src.modules.ai.types import CATEGORIES, Activity, BudgetLevel, normalise_dimensions
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,6 +74,15 @@ def load_activities(force_reload: bool = False) -> list[Activity]:
         if activity.id in seen:
             raise CatalogueError(f"Duplicate activity id in catalogue: {activity.id!r}")
         seen.add(activity.id)
+        # Fail loudly on an off-vocabulary category. The engine matches these against a
+        # profile's underexplored list by exact membership, so a stray value would not
+        # error - it would quietly stop the novelty boost from ever firing.
+        unknown = [c for c in activity.categories if c not in CATEGORIES]
+        if unknown:
+            raise CatalogueError(
+                f"Activity {activity.id!r} uses categories outside the shared vocabulary: "
+                f"{unknown}. Valid values are: {', '.join(CATEGORIES)}"
+            )
 
     _ACTIVITIES = activities
     _LOGGER.info(f"Loaded {len(activities)} activities from the catalogue")

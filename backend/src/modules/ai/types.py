@@ -36,6 +36,18 @@ catalogue use these same keys so that profiles and activities can be compared di
 can legitimately score high on both.
 """
 
+CATEGORIES: tuple[str, ...] = (
+    "craft", "creative", "food", "games", "learning", "music",
+    "nature", "outdoor", "performance", "physical", "social", "wellbeing",
+)
+"""The activity category vocabulary, shared with the catalogue.
+
+Like ``DIMENSIONS`` this is a contract, not a suggestion. The Discovery Engine tests
+``category in profile.underexplored`` by exact set membership, so a profile describing an
+unexplored area as "high-exertion physical sports" rather than "physical" silently loses the
+novelty signal instead of failing loudly.
+"""
+
 NEUTRAL = 0.5
 
 

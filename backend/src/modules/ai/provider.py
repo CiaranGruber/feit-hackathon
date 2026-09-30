@@ -43,7 +43,9 @@ class GeminiProvider:
         try:
             from google import genai
         except ImportError as exc:  # pragma: no cover - depends on the install
-            raise ProviderError("The 'google-genai' package is not installed") from exc
+            raise ProviderError(
+            "the 'google-genai' package is not installed - run: pip install -r requirements.txt"
+        ) from exc
         self._client = genai.Client(api_key=api_key)
         self._model = model
         self._fast_model = fast_model
@@ -132,6 +134,7 @@ class GeminiProvider:
 
 _PROVIDER: GeminiProvider | None = None
 _RESOLVED = False
+_FALLBACK_REASON: str | None = None
 
 
 def get_provider() -> GeminiProvider | None:
@@ -141,20 +144,23 @@ def get_provider() -> GeminiProvider | None:
     SDK or ``provider = "stub"`` are all ordinary states in which the product still works
     through its deterministic fallbacks.
     """
-    global _PROVIDER, _RESOLVED
+    global _PROVIDER, _RESOLVED, _FALLBACK_REASON
     if _RESOLVED:
         return _PROVIDER
     _RESOLVED = True
 
     ai_config = getattr(get_config(), "ai", None)
     if ai_config is None:
-        _LOGGER.warning("AI config unavailable - has parse_config() run? Falling back to offline mode")
+        _FALLBACK_REASON = "AI config unavailable - has parse_config() run?"
+        _LOGGER.warning(f"{_FALLBACK_REASON} Falling back to offline mode")
         return None
     if ai_config.provider is AIProvider.STUB:
-        _LOGGER.info("AI provider is set to 'stub' - using deterministic fallbacks")
+        _FALLBACK_REASON = "provider is set to 'stub' in config.toml"
+        _LOGGER.info(f"AI {_FALLBACK_REASON} - using deterministic fallbacks")
         return None
     if not ai_config.api_key:
-        _LOGGER.warning("No AI API key configured - using deterministic fallbacks")
+        _FALLBACK_REASON = "no api_key set under [ai] in config.toml"
+        _LOGGER.warning(f"AI fallbacks in use: {_FALLBACK_REASON}")
         return None
 
     try:
@@ -167,13 +173,25 @@ def get_provider() -> GeminiProvider | None:
         )
         _LOGGER.info(f"AI provider ready (model={ai_config.model}, fast_model={ai_config.fast_model})")
     except ProviderError as exc:
+        _FALLBACK_REASON = str(exc)
         _LOGGER.error(f"Could not initialise the AI provider, using fallbacks instead: {exc}")
         _PROVIDER = None
     return _PROVIDER
 
 
+def fallback_reason() -> str | None:
+    """Why the provider is unavailable, or None when it is working.
+
+    Exists because "no API key" is only one of several reasons, and reporting the wrong one
+    sends people to edit the wrong file.
+    """
+    get_provider()
+    return _FALLBACK_REASON
+
+
 def reset_provider() -> None:
     """Clears the cached provider so the next call re-reads configuration. Used by tests."""
-    global _PROVIDER, _RESOLVED
+    global _PROVIDER, _RESOLVED, _FALLBACK_REASON
     _PROVIDER = None
     _RESOLVED = False
+    _FALLBACK_REASON = None

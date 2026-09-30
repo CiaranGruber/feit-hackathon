@@ -53,7 +53,10 @@ Rules:
 - Address the user as "you". Warm and direct, never salesy or exclamatory.
 - Cite something SPECIFIC from their profile. Never generic praise like "this looks fun" or \
 "a great way to explore" - that is the one thing this feature exists to avoid.
-- Never invent facts about the user beyond the profile you are given.
+- NEVER invent interests. The "Things they already enjoy" list is exhaustive: if it says \
+photography and coffee, you may not write "since you enjoy cooking". Do not infer an interest \
+from the activity description either - an activity about herbs does not mean the user cooks. \
+When no listed interest fits, argue from their preference dimensions instead.
 - Do not restate the activity description; the user can already see it.
 - Plain prose only. No markdown, no bullet points, no headings, no quotation marks."""
 

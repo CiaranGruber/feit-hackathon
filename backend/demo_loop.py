@@ -28,6 +28,7 @@ from src.modules.ai import (
     analyse_reflection,
     companion_reply,
     generate_profile,
+    fallback_reason,
     get_provider,
     nudge,
 )
@@ -93,7 +94,8 @@ async def main() -> None:
         return
 
     catalogue = load_activities()
-    mode = "LIVE MODEL" if get_provider() is not None else "FALLBACK (no API key configured)"
+    reason = fallback_reason()
+    mode = "LIVE MODEL" if reason is None else f"FALLBACK ({reason})"
     print(f"\nDiscovery loop demo - {len(catalogue)} activities in catalogue - AI running in {mode} mode")
 
     # ------------------------------------------------------------------ onboard
