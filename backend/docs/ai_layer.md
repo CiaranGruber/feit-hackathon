@@ -276,8 +276,17 @@ Explore names the shared underlying trait and the new element; Wildcard leads wi
 behavioural connection, since the surface activity looks unrelated. It must cite something real
 from the profile — a generic "this looks fun!" is a failure of this component.
 
-Results are cacheable on `(profile_version, activity.id, tier)`; the engine author may cache to
-cut call volume during a demo.
+**Batched.** `generate_explanations(profile, [(activity, tier), ...], context)` writes a whole
+set in one call and maps the replies back by activity id; `discovery.explain()` uses it. Three
+separate calls spent the scarce resource (requests) to save the abundant one (tokens). Showing
+the model all three together also visibly varies them, since it can see what it already said.
+
+An id the model omits or renames falls back to a template for that activity rather than risking a
+line attached to the wrong one. The single-activity `generate_explanation()` remains for callers
+explaining one at a time.
+
+Results are also cacheable on `(profile_version, activity.id, tier)` if call volume ever matters
+more than freshness.
 
 ### 4.4 Reflection Analyser
 
@@ -382,20 +391,32 @@ Added per `code_standards.md` — typed dataclass, `SCHEMA` entry, and `config.t
 [ai]
 #provider = "gemini"                    # gemini | stub
 #api_key = "your-ai-studio-key"
-#model = "gemini-3.8-flash"             # reasoning: profile, reflection, companion
-#fast_model = "gemini-3.5-flash-lite"   # cheap: context extraction, explanations
+#model = "gemini-3.5-flash-lite"        # reasoning: profile, reflection, companion
+#fast_model = "gemini-3.5-flash-lite"   # high volume: context extraction, explanations
 #timeout_seconds = 20
-#max_retries = 2
+#max_retries = 0
 ```
+
+Both models default to flash-lite. A live 429 showed `gemini-3.8-flash` allows only **20
+requests per day** on the free tier — roughly two demo runs — where flash-lite allows 15 per
+minute and 500 per day.
+
+`max_retries` defaults to 0 because the SDK already retries internally via `tenacity`.
+Retrying on top of that multiplies the requests one logical call consumes; a single failure
+was observed burning five HTTP requests.
 
 Free API key from [aistudio.google.com](https://aistudio.google.com). Dependency:
 `google-genai` added to `requirements.txt`.
 
 **Two notes on the free tier.** Content submitted on it *is* used to improve Google's products —
 fine for synthetic demo profiles, so keep anything real out of it. And rate limits are per-project
-and visible at [aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit); check
-them before demo day, because a live demo tripping a per-minute cap is the classic way this
-fails.
+and visible at [aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit).
+
+**Requests are the scarce resource, not tokens.** At 15 requests per minute each request is
+entitled to roughly 16,000 input tokens, while a typical call here uses a few hundred. Optimise
+for fewer, larger calls — which is why explanations are batched. A full `demo_loop.py` run is
+**6 requests**: profile, context, companion reply, reflection, and one batched explanation call
+per recommendation set.
 
 Structured output is used throughout: each component defines a Pydantic model and passes its
 JSON schema to the API, which guarantees schema-valid responses. No prose parsing anywhere.
