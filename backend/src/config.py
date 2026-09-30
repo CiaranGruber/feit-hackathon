@@ -9,7 +9,7 @@ from __future__ import annotations
 import copy
 import logging
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, TypeVar, Union
@@ -71,13 +71,29 @@ class AIConfig:
         return self.provider is AIProvider.GEMINI and bool(self.api_key)
 
 
+def _default_ai_config() -> AIConfig:
+    """A stubbed AI config, used when a Config is built without one.
+
+    Defaults to the 'stub' provider so code constructing Config directly - tests in
+    particular - can never accidentally reach a live model or consume API quota.
+    """
+    return AIConfig(
+        provider=AIProvider.STUB,
+        api_key=None,
+        model="",
+        fast_model="",
+        timeout_seconds=20,
+        max_retries=0,
+    )
+
+
 @dataclass(frozen=True)
 class Config:
     port: int
     api_key: str
     logging: LoggingConfig
     database: DatabaseConfig
-    ai: AIConfig
+    ai: AIConfig = field(default_factory=_default_ai_config)
 
 
 @dataclass(frozen=True)

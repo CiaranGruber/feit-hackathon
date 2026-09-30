@@ -19,7 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 ID_LENGTH = 36
-TAG_NAME_LENGTH = 16
+TAG_NAME_LENGTH = 32
 ICON_NAME_LENGTH = 64
 SHORT_DESCRIPTION_LENGTH = 200
 COMMENT_LENGTH = 300
@@ -56,16 +56,53 @@ class Tag(Base):
     icon_name: Mapped[str] = mapped_column(String(ICON_NAME_LENGTH), nullable=False)
 
 
+class CostLevel(str, Enum):
+    """Roughly what a task costs to do."""
+
+    FREE = "free"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class Task(Base):
     """A task."""
 
     __tablename__ = "TASKS"
+    __table_args__ = (
+        CheckConstraint("duration_min > 0", name="ck_task_duration_min_positive"),
+        CheckConstraint("duration_max >= duration_min", name="ck_task_duration_range"),
+        CheckConstraint("difficulty >= 1 AND difficulty <= 5", name="ck_task_difficulty_range"),
+        CheckConstraint(
+            "cost_level IN ('free', 'low', 'medium', 'high')",
+            name="ck_task_cost_level_valid",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     short_description: Mapped[str] = mapped_column(String(SHORT_DESCRIPTION_LENGTH), nullable=False)
     generation_instructions: Mapped[str] = mapped_column(Text, nullable=False)
     image: Mapped[str] = mapped_column(String, nullable=False)
+
+    # The Discovery Engine treats duration and cost as hard constraints: an activity that
+    # cannot fit the user's stated time or budget is dropped rather than ranked low, since
+    # no explanation makes a two-hour class work for someone with twenty minutes.
+    duration_min: Mapped[int] = mapped_column(Integer, nullable=False)
+    """Shortest realistic duration in minutes."""
+    duration_max: Mapped[int] = mapped_column(Integer, nullable=False)
+    """Longest realistic duration in minutes."""
+    cost_level: Mapped[str] = mapped_column(String(8), nullable=False)
+    """One of the ``CostLevel`` values."""
+    difficulty: Mapped[int] = mapped_column(Integer, nullable=False)
+    """1-5, where 1 is approachable by a complete beginner."""
+    related_interests: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    """Comma-separated interest tags this task is adjacent to, e.g. "drawing,sculpture".
+
+    Compared against a user's free-text stated interests to judge novelty. Stored as a
+    simple list rather than a join table because it is leaf data that is never queried
+    relationally - only read back with the task.
+    """
 
 
 class TaskTag(Base):
