@@ -21,6 +21,10 @@ erDiagram
         string name "not null, 16 characters"
         string icon_name "not null, 64 characters"
     }
+    IMAGES {
+        string image_id PK "36 characters"
+        string image_path "not null, 255 characters, relative to images/"
+    }
     TASKS {
         string id PK "36 characters"
         string name "not null, 255 characters"

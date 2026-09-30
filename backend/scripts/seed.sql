@@ -8,6 +8,7 @@ DELETE FROM "USER_TAG_RELATIONSHIPS";
 DELETE FROM "TASK_TAG_RELATIONSHIPS";
 DELETE FROM "TASK_TAGS";
 DELETE FROM "TASKS";
+DELETE FROM "IMAGES";
 DELETE FROM "TAGS";
 DELETE FROM "USERS";
 
@@ -53,6 +54,29 @@ INSERT INTO "TAGS" ("id", "name", "icon_name") VALUES
         '77777777-7777-7777-7777-777777777777',
         'Quick',
         'bolt'
+    );
+
+-- Images
+INSERT INTO "IMAGES" ("image_id", "image_path") VALUES
+    (
+        'img00001-0001-0001-0001-000000000001',
+        'ice-skating.png'
+    ),
+    (
+        'img00002-0002-0002-0002-000000000002',
+        'mountainous-landscape.png'
+    ),
+    (
+        'img00003-0003-0003-0003-000000000003',
+        'outdoor-restaurant.png'
+    ),
+    (
+        'img00004-0004-0004-0004-000000000004',
+        'pottery-workshop.png'
+    ),
+    (
+        'img00005-0005-0005-0005-000000000005',
+        'task-placeholder.png'
     );
 
 -- Tasks

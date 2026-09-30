@@ -23,6 +23,7 @@ TAG_NAME_LENGTH = 16
 ICON_NAME_LENGTH = 64
 SHORT_DESCRIPTION_LENGTH = 200
 COMMENT_LENGTH = 300
+IMAGE_PATH_LENGTH = 255
 
 
 class TaskTier(str, Enum):
@@ -54,6 +55,15 @@ class Tag(Base):
     id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
     name: Mapped[str] = mapped_column(String(TAG_NAME_LENGTH), nullable=False)
     icon_name: Mapped[str] = mapped_column(String(ICON_NAME_LENGTH), nullable=False)
+
+
+class Image(Base):
+    """A stored image referenced by path."""
+
+    __tablename__ = "IMAGES"
+
+    image_id: Mapped[str] = mapped_column(String(ID_LENGTH), primary_key=True)
+    image_path: Mapped[str] = mapped_column(String(IMAGE_PATH_LENGTH), nullable=False)
 
 
 class Task(Base):
